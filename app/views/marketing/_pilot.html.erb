@@ -1,0 +1,28 @@
+<section id="pilot" class="pilot-section" aria-labelledby="pilot-title">
+  <div class="shell pilot-layout">
+    <div class="pilot-copy"><div class="eyebrow"><span class="status-dot"></span> HELP SHAPE WHAT COMES NEXT</div><h2 id="pilot-title">A better view<br> starts with<br> <span class="serif">your store.</span></h2><p>We're looking for clothing brands to help shape Sellora. Tell us a little about your store and register your interest in the pilot.</p><span class="pilot-note">Shopify first. Starting in Pakistan.<br> No store access is granted by this form.</span></div>
+    <div class="pilot-form-wrap">
+      <% if flash[:notice] %>
+        <div class="form-notice" role="status" tabindex="-1" data-controller="form-feedback"><span aria-hidden="true">✓</span><h3>You're on the interest list.</h3><p><%= flash[:notice] %></p></div>
+      <% else %>
+        <%= form_with model: @pilot_request, scope: :pilot_request, url: pilot_requests_path(anchor: "pilot"), data: { turbo: false }, html: { class: "pilot-form" } do |form| %>
+          <h3>Join the pilot</h3><p class="form-intro">A few details. A useful conversation to start.</p>
+          <p class="local-review-note">Local review build · Please use fictional details.</p>
+          <% if @pilot_request.errors.any? %>
+            <div class="form-errors" role="alert" tabindex="-1" data-controller="form-feedback"><strong>Your request hasn't been saved.</strong><ul><% @pilot_request.errors.each do |error| %><li><% if error.attribute == :base %><%= error.message %><% else %><a href="#pilot_request_<%= error.attribute %>"><%= error.full_message %></a><% end %></li><% end %></ul></div>
+          <% end %>
+          <div class="form-fields">
+            <div class="form-field"><%= form.label :name, "Your name" %><%= form.text_field :name, required: true, maxlength: 100, autocomplete: "name", placeholder: "Full name", aria: { invalid: @pilot_request.errors[:name].any? } %></div>
+            <div class="form-field"><%= form.label :email, "Work email" %><%= form.email_field :email, required: true, maxlength: 254, autocomplete: "email", placeholder: "you@yourbrand.com", aria: { invalid: @pilot_request.errors[:email].any? } %></div>
+            <div class="form-field"><%= form.label :store_url, "Store URL" %><%= form.url_field :store_url, required: true, maxlength: 2048, autocomplete: "url", placeholder: "https://yourstore.com", aria: { invalid: @pilot_request.errors[:store_url].any? } %></div>
+            <div class="form-field"><%= form.label :platform, "Store platform" %><%= form.select :platform, PilotRequest::PLATFORMS, { prompt: "Select your platform" }, required: true, aria: { invalid: @pilot_request.errors[:platform].any? } %></div>
+          </div>
+          <p class="form-privacy" id="form-privacy">We use these details to assess your request and contact you about the pilot. <a href="#privacy">How your details are handled</a>.</p>
+          <%= form.button type: "submit", class: "button button-dark", aria: { describedby: "form-privacy" } do %>Request to join <span aria-hidden="true">↗</span><% end %>
+          <p class="micro">Pilot timing, availability and pricing are not yet finalized.</p>
+        <% end %>
+      <% end %>
+      <details id="privacy" class="privacy-details"><summary>Pilot request privacy <span aria-hidden="true">+</span></summary><p>This form saves your name, email, store URL and platform in Sellora's database, together with the submission time. The intended use is to assess interest and follow up about the pilot. It does not connect to your store or collect its traffic, customer or order data.</p><p>This local review build stores submissions in the local application database. No email is sent by this form. There are no advertising or analytics trackers on this page; Rails uses a session cookie for form security and the submission confirmation. Basic request throttling temporarily uses your IP address in the server cache.</p><p>Before public collection opens, the operator must publish a privacy contact, retention and deletion process, and confirm the hosting arrangements. Please use fictional details while reviewing this local build.</p></details>
+    </div>
+  </div>
+</section>

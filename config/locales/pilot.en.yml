@@ -1,0 +1,11 @@
+en:
+  activemodel:
+    attributes:
+      pilot_request_form:
+        store_url: Store URL
+        email: Work email
+  activerecord:
+    attributes:
+      pilot_request:
+        store_url: Store URL
+        email: Work email
