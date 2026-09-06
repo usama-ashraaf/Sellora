@@ -28,7 +28,7 @@ See also: [m2-foundation.md](./m2-foundation.md), [activity-events.md](./activit
 - [x] Webhook HMAC + idempotency stubs
 - [ ] Embedded app home working in Shopify admin (**needs public HTTPS App URL**)
 - [x] Webhooks registered via GraphQL (`WebhookRegistrar` + rake); E2E verify against Wave 1 when tunnel live
-- [ ] Supported Web Pixel events (consent-aware)
+- [x] Supported Web Pixel events (consent-aware) — lean stub + ingest + docs; see [web-pixel.md](./web-pixel.md) (activation scopes / app-proxy still blockers for live E2E)
 - [ ] Separate order records (Phase B `read_orders` when implementing this slice)
 - [ ] Uninstall/privacy handling complete (token+catalog purge done; document retention)
 

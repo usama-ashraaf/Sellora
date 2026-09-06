@@ -21,6 +21,9 @@ Rails.application.routes.draw do
     post "app_uninstalled", to: "shopify#receive", defaults: { topic: "app_uninstalled" }
   end
 
+  # Web Pixel ingest stub (shared secret). Consent-aware; see docs/web-pixel.md.
+  post "web_pixels/events", to: "web_pixels/events#create", as: :web_pixel_events
+
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check

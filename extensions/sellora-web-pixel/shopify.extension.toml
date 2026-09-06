@@ -1,0 +1,30 @@
+# Sellora Web Pixel Extension (M3 lean stub)
+# Deploy via Partner Dev Dashboard / `shopify app deploy` — see docs/web-pixel.md.
+# uid is managed by Shopify CLI on first generate/deploy; placeholder for repo stub.
+type = "web_pixel_extension"
+name = "sellora-web-pixel"
+uid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+runtime_context = "strict"
+
+# Pixel only loads when visitor grants these purposes (Shopify pixel manager).
+# JS also fail-closes on missing/false consent before subscribe/fire.
+[customer_privacy]
+analytics = true
+marketing = true
+preferences = false
+sale_of_data = "disabled"
+
+[settings]
+type = "object"
+
+[settings.fields.accountID]
+name = "Account ID"
+description = "Sellora account / shop identifier for ingest routing (opaque string)"
+type = "single_line_text_field"
+validations = [{ name = "min", value = "1" }]
+
+[settings.fields.ingestUrl]
+name = "Ingest URL"
+description = "HTTPS POST endpoint for pixel events (e.g. https://host/web_pixels/events)"
+type = "single_line_text_field"
+validations = [{ name = "min", value = "8" }]

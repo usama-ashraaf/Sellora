@@ -155,3 +155,7 @@ bin/rails sellora:register_webhooks_all
 1. Ensure Rails is reachable at `SHOPIFY_APP_URL` and `register_webhooks_all` reported `:created` / `:already_registered` for all five topics on both shops.
 2. Trigger a small product update in Admin (or Admin API) on one Wave 1 store.
 3. Confirm a `webhook_events` row for `products/update` (or matching topic) and/or a log line `[shopify webhook] catalog sync enqueued`.
+
+## Web Pixel (consent-aware stub)
+
+Storefront pixel extension + `POST /web_pixels/events` ingest: **`docs/web-pixel.md`**. Not registered by `sellora:register_webhooks*` (different API + scopes).

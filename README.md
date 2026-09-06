@@ -25,6 +25,7 @@ Open http://127.0.0.1:3000. The pilot interest form collects name, work email, s
 ```sh
 bin/rails test
 node test/javascript/marketing_controllers_test.cjs
+node test/javascript/web_pixel_consent_test.cjs
 bin/rubocop
 bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error
 bin/bundler-audit

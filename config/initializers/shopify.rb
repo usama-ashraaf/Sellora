@@ -37,6 +37,12 @@ module ShopifyConfig
     client_id.present? && api_secret.present?
   end
 
+  # Shared secret for POST /web_pixels/events (pixel ingest stub). Not a Shopify scope.
+  # Storefront JS cannot hold this safely long-term — migrate to app proxy later.
+  def web_pixel_ingest_secret
+    ENV.fetch("WEB_PIXEL_INGEST_SECRET", "")
+  end
+
   # Granted scopes must be a subset of Phase A (never broader).
   def phase_a_scopes_subset?(granted)
     granted_list = parse_scopes(granted)

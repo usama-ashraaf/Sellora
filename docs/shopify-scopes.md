@@ -20,8 +20,16 @@ Principle: **least privilege**. Enable only what the current milestone needs. Ne
 - `shop/update` (optional)
 
 **Not Admin scopes (separate extensions — M3):**
-- Web Pixel Extension (storefront events; consent-aware)
+- Web Pixel Extension (storefront events; consent-aware) — stub in `extensions/sellora-web-pixel/`; see [web-pixel.md](./web-pixel.md)
 - Optional storefront extension later (size select / placement) — not required for first install
+
+**Pixel activation scopes (not Phase A — do not add to OAuth ceiling yet):**
+| Scope | Why |
+|-------|-----|
+| `write_pixels` | `webPixelCreate` / merchant pixel settings |
+| `read_customer_events` | Customer events access for app pixels |
+
+Hold until Wave 1 live pixel E2E is scheduled; extension can be deployed via CLI/Dev Dashboard without widening `ShopifyConfig::PHASE_A_SCOPES`.
 
 ### Phase B — M3 orders + M4 monitoring
 Add when building order/outcome + promo monitoring:

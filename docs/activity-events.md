@@ -40,9 +40,27 @@ Rules:
 4. `payload` must be a Hash (default `{}`).
 5. Never write secrets (tokens, HMAC keys) into `payload`.
 
+## Web pixel (`source: "web_pixel"`)
+
+Use `Activity::WebPixelIngest` (not raw `Ingest`) for storefront pixel traffic so consent is enforced fail-closed:
+
+```ruby
+Activity::WebPixelIngest.call(
+  shop_domain: "sellora-test-outfitters-like.myshopify.com",
+  event_name: "product_viewed",
+  consent: { "analytics_processing_allowed" => true, "marketing_allowed" => true },
+  occurred_at: Time.current,
+  payload: { "id" => "evt-1" }
+)
+```
+
+- Missing or non-true analytics consent → `Activity::WebPixelIngest::ConsentDenied` (no row).
+- HTTP: `POST /web_pixels/events` with `X-Sellora-Pixel-Secret` (see [web-pixel.md](./web-pixel.md)).
+- Allowed Wave 1 names: `page_viewed`, `product_viewed`, `product_added_to_cart`.
+
 ## Phase A note
 
-Shopify Phase A scopes only. Order / checkout payloads are out of scope until Phase B `read_orders`. Web pixel events will use the same contract with `source: "web_pixel"` when M3 completes that slice.
+Shopify Phase A scopes only. Order / checkout payloads are out of scope until Phase B `read_orders`. Web pixel storefront events use `source: "web_pixel"` via the consent-aware path above.
 
 ## Privacy
 
