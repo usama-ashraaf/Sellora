@@ -21,7 +21,10 @@ Rails.application.configure do
     config.active_record.encryption.key_derivation_salt = "sellora_test_derivation_salt!!"
   end
 
-  # Allow reading legacy plaintext tokens written before encryption was enabled;
-  # next save re-encrypts them. Safe to leave on after rollout.
+  # TEMPORARY plaintext fallback: allow reading legacy unencrypted tokens written
+  # before encryption was enabled; the next save re-encrypts them.
+  # Plan (follow-up migration): once every Shop#access_token has been re-saved /
+  # re-encrypted (verify no plaintext rows remain), set this to false and drop the
+  # plaintext fallback so only ciphertext is accepted.
   config.active_record.encryption.support_unencrypted_data = true
 end

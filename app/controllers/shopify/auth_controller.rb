@@ -91,7 +91,25 @@ module Shopify
 
     def oauth_error(error)
       reset_oauth_session
-      render plain: "OAuth error: #{error.message}. Check shop domain, Client ID/Secret, and that the authorization code was not reused.", status: :bad_gateway
+      render plain: client_facing_oauth_error(error), status: :bad_gateway
+    end
+
+    # Actionable client text only — never echo tokens, codes, secrets, or raw upstream bodies.
+    def client_facing_oauth_error(error)
+      case error.message.to_s
+      when /invalid shop domain/i
+        "OAuth failed: invalid shop domain. Restart from /shopify/install?shop=your-store.myshopify.com"
+      when /missing code/i
+        "OAuth failed: missing authorization code. Restart install from /shopify/install?shop=your-store.myshopify.com"
+      when /token exchange failed/i
+        "OAuth token exchange failed. Confirm SHOPIFY_CLIENT_ID and SHOPIFY_API_SECRET match the Partner app, " \
+          "Allowed redirection URL is …/auth/shopify/callback, and restart install (authorization codes are single-use)."
+      when /missing access_token/i
+        "OAuth token exchange returned no access token. Confirm Partner app credentials and restart install."
+      else
+        "OAuth failed. Restart from /shopify/install?shop=your-store.myshopify.com and confirm Partner app " \
+          "Client ID/Secret plus Allowed redirection URL (…/auth/shopify/callback)."
+      end
     end
   end
 end

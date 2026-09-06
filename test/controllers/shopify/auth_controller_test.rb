@@ -95,6 +95,33 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     assert_nil Shop.find_by(shopify_domain: "acme.myshopify.com")
   end
 
+  test "callback oauth_error is actionable without leaking secrets" do
+    get shopify_install_path, params: { shop: "acme.myshopify.com" }
+    state = session[:shopify_oauth_state]
+
+    original = Shopify::Oauth.method(:exchange_code)
+    Shopify::Oauth.define_singleton_method(:exchange_code) do |**_|
+      raise Shopify::Oauth::Error, "token exchange failed (HTTP 400)"
+    end
+
+    begin
+      get shopify_callback_path, params: signed_callback_params(
+        shop: "acme.myshopify.com",
+        code: "auth-code",
+        state: state
+      )
+    ensure
+      Shopify::Oauth.define_singleton_method(:exchange_code, original)
+    end
+
+    assert_response :bad_gateway
+    assert_match(/OAuth token exchange failed/, response.body)
+    assert_match(/Allowed redirection URL/, response.body)
+    assert_match(/single-use/, response.body)
+    refute_match(/auth-code|shpat_|test-shopify-secret|test-client-id/, response.body)
+    assert_nil session[:shopify_oauth_state]
+  end
+
   test "callback exchanges code and persists shop when state matches" do
     get shopify_install_path, params: { shop: "acme.myshopify.com" }
     state = session[:shopify_oauth_state]

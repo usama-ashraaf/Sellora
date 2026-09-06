@@ -15,6 +15,29 @@ Fictional Shopify **development stores** that mimic Pakistani clothing ecommerce
 - Owner (stores + fixtures): **Dev Store Agent**
 - Partner app install / scopes: **Lead Engineer**
 
+### Partner App URL + Allowed redirection URL
+
+In Partners → Apps → Sellora → App setup (tunnel host = your public HTTPS base, e.g. ngrok):
+
+| Setting | Value |
+|--------|--------|
+| **App URL** | `https://<tunnel-host>/` (or `https://<tunnel-host>/shopify/install`) |
+| **Allowed redirection URL(s)** | `https://<tunnel-host>/auth/shopify/callback` |
+
+Callback path is always `/auth/shopify/callback` — required for OAuth to complete.
+
+### Webhook paths (same tunnel host)
+
+| Topic | Endpoint |
+|-------|----------|
+| `products/create` | `POST https://<tunnel-host>/webhooks/shopify/products_create` |
+| `products/update` | `POST https://<tunnel-host>/webhooks/shopify/products_update` |
+| `products/delete` | `POST https://<tunnel-host>/webhooks/shopify/products_delete` |
+| `inventory_levels/update` | `POST https://<tunnel-host>/webhooks/shopify/inventory_levels_update` |
+| `app/uninstalled` | `POST https://<tunnel-host>/webhooks/shopify/app_uninstalled` |
+
+Full install steps: `docs/shopify-install.md`.
+
 ## Status (2026-09-06)
 - [x] Partners / Dev Dashboard access
 - [x] Both stores created
@@ -26,6 +49,16 @@ Fictional Shopify **development stores** that mimic Pakistani clothing ecommerce
 - [x] Reviewer hardens (token encryption, OAuth HMAC binding, scope assert, webhook ledger)
 
 ## Usama test runbook (smoke)
+
+**Live store domains (Wave 1):**
+
+- `sellora-test-outfitters-like.myshopify.com`
+- `sellora-test-sapphire-like.myshopify.com`
+
+OAuth kick (with tunnel):  
+`https://<tunnel-host>/shopify/install?shop=sellora-test-outfitters-like.myshopify.com`  
+`https://<tunnel-host>/shopify/install?shop=sellora-test-sapphire-like.myshopify.com`  
+Allowed redirection URL must be `https://<tunnel-host>/auth/shopify/callback`.
 
 ### 1. Open each admin
 1. Sign in to Shopify with the Southville Solutions / Partners account.

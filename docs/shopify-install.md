@@ -14,14 +14,18 @@ Install Sellora on a Partner **development store** with least-privilege Phase A 
 
 ## Configure Partner app URLs
 
-In Partners → Apps → Sellora → App setup:
+In Partners → Apps → Sellora → App setup (required):
 
 | Setting | Value |
 |--------|--------|
-| App URL | `https://<tunnel-host>/` (or `/shopify/install` if you prefer) |
-| Allowed redirection URL(s) | `https://<tunnel-host>/auth/shopify/callback` |
+| **App URL** | `https://<tunnel-host>/` (or `https://<tunnel-host>/shopify/install`) |
+| **Allowed redirection URL(s)** | `https://<tunnel-host>/auth/shopify/callback` |
+
+The Allowed redirection URL **must** end with `/auth/shopify/callback` (Rails route `shopify_callback`). A mismatch here is a common cause of OAuth token-exchange failures.
 
 Enable **Phase A** scopes only (see `docs/shopify-scopes.md`). Do not enable Phase B/C scopes yet.
+
+### Webhook paths
 
 Suggested webhook subscriptions (point at the tunnel host):
 
@@ -32,6 +36,15 @@ Suggested webhook subscriptions (point at the tunnel host):
 | `products/delete` | `POST https://<tunnel-host>/webhooks/shopify/products_delete` |
 | `inventory_levels/update` | `POST https://<tunnel-host>/webhooks/shopify/inventory_levels_update` |
 | `app/uninstalled` | `POST https://<tunnel-host>/webhooks/shopify/app_uninstalled` |
+
+### Usama testing — live Wave 1 stores
+
+Install / re-install against these Partner development stores (see `docs/dev-stores.md`):
+
+| Store | Shop domain | Install kick URL |
+|-------|-------------|------------------|
+| Outfitters-like | `sellora-test-outfitters-like.myshopify.com` | `https://<tunnel-host>/shopify/install?shop=sellora-test-outfitters-like.myshopify.com` |
+| Sapphire-like | `sellora-test-sapphire-like.myshopify.com` | `https://<tunnel-host>/shopify/install?shop=sellora-test-sapphire-like.myshopify.com` |
 
 ## Local environment
 
@@ -69,6 +82,7 @@ Rails does not load `.env` automatically in this app; export variables in your s
 - Callback `shop` must match the shop stored in session at install start.
 - Granted OAuth scopes must be a subset of Phase A; broader grants are rejected.
 - `shops.access_token` is encrypted with Active Record encryption (keys via ENV only).
+- `support_unencrypted_data` is **temporary**: it lets pre-encryption plaintext tokens remain readable until each row is re-saved (which re-encrypts). **Follow-up:** once every `shops.access_token` is known encrypted, set `support_unencrypted_data` to `false` in `config/initializers/active_record_encryption.rb` and drop the plaintext fallback.
 - Webhooks verify `X-Shopify-Hmac-Sha256` and record an idempotency ledger (`webhook_events`) keyed by `X-Shopify-Webhook-Id` (or a body/HMAC fingerprint fallback). Duplicates are acknowledged with `200` and skip business logic.
 - `app/uninstalled` clears the stored offline token and sets `uninstalled_at`.
 - Product/inventory webhook handlers are stubs in Phase A (acknowledge + log topic/shop only).
