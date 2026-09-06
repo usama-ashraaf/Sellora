@@ -18,7 +18,7 @@ bin/rails db:prepare
 bin/rails server -b 127.0.0.1 -p 3000
 ```
 
-Open http://127.0.0.1:3000. Use fictional details when reviewing the form. Valid submissions are stored in `pilot_requests`; nothing is emailed and submitting does not connect a store. Operators can inspect requests through the Rails console; there is no public listing endpoint. Do not copy request records or unfiltered query output into logs or shared reports.
+Open http://127.0.0.1:3000. The pilot interest form collects name, work email, store URL and platform only. Valid submissions are stored in `pilot_requests`; nothing is emailed and submitting does not connect a store. Retention is for pilot evaluation (delete on request / when the pilot ends). The listed privacy contact is a temporary placeholder until production launch. Operators can inspect requests through the Rails console; there is no public listing endpoint. Do not copy request records or unfiltered query output into logs or shared reports.
 
 ## Checks
 
@@ -34,4 +34,4 @@ bin/rails zeitwerk:check
 
 The JavaScript checks use built-in Node functionality and need no npm dependencies. If you precompile assets in development, run `bin/rails assets:clobber` afterward to restore live asset updates.
 
-This is a local review implementation. Public collection needs finalized privacy information and operational ownership before deployment. Shopify OAuth + webhook scaffolding (M3 Phase A) is documented in docs/shopify-install.md; later sync/order milestones remain future work.
+Pre-production marketing + pilot interest collection. Privacy copy uses a temporary placeholder contact (`privacy-placeholder@sellora.example`, not monitored) until a production contact and hosting ownership are finalized. Shopify OAuth + webhook scaffolding (M3 Phase A) is documented in docs/shopify-install.md; later sync/order milestones remain future work.

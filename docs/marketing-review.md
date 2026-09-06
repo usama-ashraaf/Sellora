@@ -16,9 +16,9 @@ The local implementation covers the marketing website and a real PostgreSQL-back
 | Team review and future optional autopilot | `app/views/marketing/_priorities.html.erb:19` | No automated store actions implemented. |
 | Planned Shopify-first onboarding | `app/views/marketing/_priorities.html.erb:24` | Integration is explicitly in development. |
 | Real pilot storage and truthful errors | `app/controllers/pilot_requests_controller.rb:5`; `app/models/pilot_request.rb:3`; `db/migrate/20260906000000_create_pilot_requests.rb:1` | Stores four fields and timestamps; no email delivery or admin interface. |
-| Collection privacy | `app/views/marketing/_pilot.html.erb:1`; `config/initializers/filter_parameter_logging.rb:6`; `app/controllers/pilot_requests_controller.rb:10` | Local review notice visible; public privacy contact, retention/deletion policy and hosting must be finalized. SQL save logging is silenced because development query tags can inline personal values. |
+| Collection privacy | `app/views/marketing/_pilot.html.erb:1`; `config/initializers/filter_parameter_logging.rb:6`; `app/controllers/pilot_requests_controller.rb:10` | Pilot interest framing; fields disclosed (name, work email, store URL, platform); no store connection; retention/deletion stated; temporary placeholder privacy contact (`privacy-placeholder@sellora.example`, not monitored) until production launch. SQL save logging is silenced because development query tags can inline personal values. |
 | Keyboard access, focus, reduced motion, normal scrolling | `app/assets/stylesheets/application.css:16`; `app/assets/stylesheets/application.css:97`; `app/javascript/controllers/form_feedback_controller.js:1` | Browser keyboard checks performed; OS reduced-motion preference and screen-reader output were not manually toggled/tested. Reduced-motion controller branch has automated coverage. |
-| FAQ, footer, honest status and no invented customers | `app/views/marketing/_faq.html.erb:1`; `app/views/marketing/show.html.erb:26` | No pricing packages, testimonials, customer logos or invented contact information. |
+| FAQ, footer, honest status and no invented customers | `app/views/marketing/_faq.html.erb:1`; `app/views/marketing/show.html.erb:26` | No pricing packages, testimonials or customer logos. Privacy contact is an explicitly labeled temporary placeholder, not a production inbox. |
 | Existing stack and dependency boundaries | Existing Gemfile, lockfile and import map retained | No new dependencies, React, Redis, remote push, deployment, messages or emails. |
 
 ## Verification performed
@@ -38,7 +38,7 @@ The local implementation covers the marketing website and a real PostgreSQL-back
 
 No real Shopify connection, real merchant audit, event tracking, order ingestion, email follow-up, account access, public deployment, domain or trademark verification was performed. Screen-reader behavior, OS-level reduced-motion rendering, 200% text zoom and a cross-browser/device matrix have not been manually verified. No-JS behavior was checked through server-rendered markup and ordinary HTTP form tests, not a JS-disabled browser session.
 
-Before public launch, approve the design and publishing destination, finalize a real privacy contact and retention/deletion process, assign responsibility for reviewing requests, and verify production HTTPS, database/cache configuration and backups. Public privacy claims must describe the chosen environment rather than this local review build. The current development throttle is per-process memory; production uses the application's configured cache.
+Before public launch, approve the design and publishing destination, replace the placeholder privacy contact with a monitored production address, assign responsibility for reviewing requests, and verify production HTTPS, database/cache configuration and backups. Public privacy claims must describe the chosen production environment. The current development throttle is per-process memory; production uses the application's configured cache.
 
 ## Image provenance
 

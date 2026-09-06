@@ -7,7 +7,7 @@
       <% else %>
         <%= form_with model: @pilot_request, scope: :pilot_request, url: pilot_requests_path(anchor: "pilot"), data: { turbo: false }, html: { class: "pilot-form" } do |form| %>
           <h3>Join the pilot</h3><p class="form-intro">A few details. A useful conversation to start.</p>
-          <p class="local-review-note">Local review build · Please use fictional details.</p>
+          <p class="local-review-note">Pilot interest form — placeholder privacy contact until production launch.</p>
           <% if @pilot_request.errors.any? %>
             <div class="form-errors" role="alert" tabindex="-1" data-controller="form-feedback"><strong>Your request hasn't been saved.</strong><ul><% @pilot_request.errors.each do |error| %><li><% if error.attribute == :base %><%= error.message %><% else %><a href="#pilot_request_<%= error.attribute %>"><%= error.full_message %></a><% end %></li><% end %></ul></div>
           <% end %>
@@ -22,7 +22,7 @@
           <p class="micro">Pilot timing, availability and pricing are not yet finalized.</p>
         <% end %>
       <% end %>
-      <details id="privacy" class="privacy-details"><summary>Pilot request privacy <span aria-hidden="true">+</span></summary><p>This form saves your name, email, store URL and platform in Sellora's database, together with the submission time. The intended use is to assess interest and follow up about the pilot. It does not connect to your store or collect its traffic, customer or order data.</p><p>This local review build stores submissions in the local application database. No email is sent by this form. There are no advertising or analytics trackers on this page; Rails uses a session cookie for form security and the submission confirmation. Basic request throttling temporarily uses your IP address in the server cache.</p><p>Before public collection opens, the operator must publish a privacy contact, retention and deletion process, and confirm the hosting arrangements. Please use fictional details while reviewing this local build.</p></details>
+      <details id="privacy" class="privacy-details"><summary>Pilot request privacy <span aria-hidden="true">+</span></summary><p>This pilot interest form collects only your name, work email, store URL and platform, together with the submission time. We use these details to assess pilot interest and follow up. Submitting does <strong>not</strong> connect a store or collect traffic, customer or order data.</p><p>Submissions are retained for pilot evaluation and deleted on request or when the pilot ends. Privacy contact (temporary placeholder — not monitored): <a href="mailto:privacy-placeholder@sellora.example">privacy-placeholder@sellora.example</a>. A production contact will replace this before public launch.</p><p>No email is sent by this form. There are no advertising or analytics trackers on this page; Rails uses a session cookie for form security and the submission confirmation. Basic request throttling temporarily uses your IP address in the server cache. This is a pre-production build; hosting arrangements for public collection are still being confirmed.</p></details>
     </div>
   </div>
 </section>
