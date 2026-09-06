@@ -40,13 +40,30 @@ module Shopify
 
       reconcile_removed_products!
 
-      {
+      result = {
         products: @seen_product_external_ids.size,
         shop_id: @shop.id
       }
+      emit_catalog_synced!(result[:products])
+      result
     end
 
     private
+
+    def emit_catalog_synced!(product_count)
+      return if @shop.account.blank?
+
+      Activity::Ingest.call(
+        account: @shop.account,
+        shop: @shop,
+        event_name: "catalog.synced",
+        occurred_at: Time.current,
+        payload: { "products" => product_count },
+        source: "shopify_sync"
+      )
+    rescue Activity::Ingest::Error => e
+      Rails.logger.warn("[catalog_sync] activity emit skipped shop=#{@shop.shopify_domain} error=#{e.message}")
+    end
 
     def upsert_product!(node)
       external_id = node.fetch("id")

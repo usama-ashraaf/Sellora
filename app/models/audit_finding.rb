@@ -13,11 +13,23 @@ class AuditFinding < ApplicationRecord
   validates :severity, presence: true, inclusion: { in: SEVERITIES }
   validates :status, presence: true, inclusion: { in: STATUSES }
   validates :message, presence: true
+  validate :account_matches_shop
 
   # Idempotency: unique index index_audit_findings_on_natural_key
-  # (shop_id, audit_rule_id, catalog_product_id, catalog_variant_id) NULLS NOT DISTINCT.
+  # Optional catalog references use COALESCE in the database index so NULLs
+  # represent the same identity on PostgreSQL 14 as well as newer versions.
 
   scope :open_findings, -> { where(status: "open") }
   scope :for_account, ->(account) { where(account_id: account.id) }
   scope :for_shop, ->(shop) { where(shop_id: shop.id) }
+
+  private
+
+  def account_matches_shop
+    return if shop.blank? || account_id.blank?
+    return if shop.account_id.blank?
+    return if shop.account_id == account_id
+
+    errors.add(:account_id, "must match shop account")
+  end
 end

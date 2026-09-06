@@ -100,7 +100,7 @@ There is **no hard truncate**: nested connections are expanded to completion bef
 
 ### Uninstall catalog policy (S4)
 
-On `app/uninstalled`, `Shop#mark_uninstalled!` clears the offline token **and purges** that shop’s `catalog_products` (cascading to variants + inventory levels). Catalog rows are **not** retained after uninstall. Re-install starts from an empty local catalog and a fresh sync.
+On `app/uninstalled`, `Shop#mark_uninstalled!` clears the offline token **and purges** that shop’s `catalog_products` (cascading to variants + inventory levels), `audit_findings`, and `activity_events`. Catalog rows are **not** retained after uninstall. Re-install starts from an empty local catalog and a fresh sync. See [privacy-retention.md](./privacy-retention.md).
 
 ## Code map
 

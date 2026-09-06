@@ -109,7 +109,9 @@ module Activity
     def sanitize_payload(raw)
       return {} unless raw.is_a?(Hash)
 
-      raw.stringify_keys.except("access_token", "token", "secret", "hmac", "authorization")
+      raw.stringify_keys.slice("id", "name", "product_id", "variant_id").each_with_object({}) do |(key, value), safe|
+        safe[key] = value.to_s.first(255) if value.is_a?(String) || value.is_a?(Numeric)
+      end
     end
   end
 end

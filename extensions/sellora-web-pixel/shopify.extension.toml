@@ -28,3 +28,15 @@ name = "Ingest URL"
 description = "HTTPS POST endpoint for pixel events (e.g. https://host/web_pixels/events)"
 type = "single_line_text_field"
 validations = [{ name = "min", value = "8" }]
+
+[settings.fields.shopDomain]
+name = "Shop domain"
+description = "Canonical myshopify.com domain registered by Sellora"
+type = "single_line_text_field"
+validations = [{ name = "min", value = "15" }]
+
+[settings.fields.ingestToken]
+name = "Ingest token"
+description = "Public write-only event submission token for this shop installation"
+type = "single_line_text_field"
+validations = [{ name = "min", value = "8" }]

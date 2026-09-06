@@ -117,7 +117,7 @@ Rails does not load `.env` automatically in this app; export variables in your s
 - `shops.access_token` is encrypted with Active Record encryption (keys via ENV only).
 - `support_unencrypted_data` is **temporary**: it lets pre-encryption plaintext tokens remain readable until each row is re-saved (which re-encrypts). **Follow-up:** once every `shops.access_token` is known encrypted, set `support_unencrypted_data` to `false` in `config/initializers/active_record_encryption.rb` and drop the plaintext fallback.
 - Webhooks verify `X-Shopify-Hmac-Sha256` and record an idempotency ledger (`webhook_events`) keyed by `X-Shopify-Webhook-Id` (or a body/HMAC fingerprint fallback). Duplicates are acknowledged with `200` and skip business logic.
-- `app/uninstalled` clears the stored offline token, sets `uninstalled_at`, and **purges** that shop’s catalog rows (products/variants/inventory levels — see `docs/catalog-sync.md` S4).
+- `app/uninstalled` clears the stored offline token, sets `uninstalled_at`, and **purges** that shop’s catalog, findings, and activity events (see [privacy-retention.md](./privacy-retention.md)).
 - Product/inventory webhooks enqueue `Shopify::CatalogSyncJob` after the idempotency ledger claim (see `docs/catalog-sync.md`).
 
 ## Rate limiting (ops)

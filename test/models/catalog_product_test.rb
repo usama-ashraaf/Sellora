@@ -4,8 +4,8 @@ require "test_helper"
 
 class CatalogProductTest < ActiveSupport::TestCase
   setup do
-    @shop_a = Shop.create!(shopify_domain: "a.myshopify.com", access_token: "t1", scope: "read_products")
-    @shop_b = Shop.create!(shopify_domain: "b.myshopify.com", access_token: "t2", scope: "read_products")
+    @shop_a = Shop.create!(shopify_domain: "a.myshopify.com", access_token: "t1", scope: "read_products", account: Account.create!(name: "Catalog A"))
+    @shop_b = Shop.create!(shopify_domain: "b.myshopify.com", access_token: "t2", scope: "read_products", account: Account.create!(name: "Catalog B"))
   end
 
   test "same external_id allowed across shops unique within shop" do

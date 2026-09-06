@@ -13,7 +13,8 @@ class Webhooks::ShopifyControllerTest < ActionDispatch::IntegrationTest
     @shop = Shop.create!(
       shopify_domain: "acme.myshopify.com",
       access_token: "shpat_live",
-      scope: "read_products,read_inventory,read_locations"
+      scope: "read_products,read_inventory,read_locations",
+      account: Account.create!(name: "Webhook Acme")
     )
   end
 

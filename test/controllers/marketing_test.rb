@@ -15,10 +15,10 @@ class MarketingTest < ActionDispatch::IntegrationTest
     assert_select "#faq details", count: 6
     assert_includes response.body, "ILLUSTRATIVE DEMO"
     assert_includes response.body, "PLANNED SHOPIFY-FIRST WORKFLOW"
-    assert_includes response.body, "Pilot interest form — placeholder privacy contact until production launch."
-    assert_includes response.body, "privacy-placeholder@sellora.example"
+    assert_includes response.body, "Local pilot interest form — requests are stored in this app"
+    assert_includes response.body, "local review only and is not a public launch"
     assert_includes response.body, "does <strong>not</strong> connect a store"
-    assert_includes response.body, "retained for pilot evaluation"
+    assert_includes response.body, "retained for local pilot evaluation"
     refute_includes response.body, "Please use fictional details"
     assert_equal "no-store", response.headers["Cache-Control"]
   end

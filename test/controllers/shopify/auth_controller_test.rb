@@ -18,6 +18,7 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "install redirects to Shopify authorize URL with Wave 1 scopes" do
+    ENV["SHOPIFY_SCOPES"] = "read_products,read_inventory,read_locations,write_pixels,read_customer_events,read_orders"
     get shopify_install_path, params: { shop: "acme.myshopify.com" }
     assert_response :redirect
     location = response.redirect_url
@@ -28,8 +29,8 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     assert_includes location, "read_locations"
     assert_includes location, "write_pixels"
     assert_includes location, "read_customer_events"
+    assert_includes location, "read_orders"
     refute_includes location, "write_products"
-    refute_includes location, "read_orders"
     assert_match(/state=[0-9a-f]+/, location)
   end
 
@@ -77,13 +78,15 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Invalid OAuth HMAC/, response.body)
   end
 
-  test "callback rejects write_products beyond allowed ceiling" do
+  test "callback accepts Phase C write_products within allowed ceiling" do
     get shopify_install_path, params: { shop: "acme.myshopify.com" }
     state = session[:shopify_oauth_state]
 
     fake_token = { "access_token" => "shpat_test_offline", "scope" => "read_products,write_products" }
     original = Shopify::Oauth.method(:exchange_code)
     Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
+    stub_webhook_registrar!
+    stub_web_pixel_registrar!
 
     begin
       get shopify_callback_path, params: signed_callback_params(
@@ -95,16 +98,17 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
       Shopify::Oauth.define_singleton_method(:exchange_code, original)
     end
 
-    assert_response :forbidden
-    assert_match(/allowed Wave 1 scopes/, response.body)
-    assert_nil Shop.find_by(shopify_domain: "acme.myshopify.com")
+    assert_response :success
+    shop = Shop.find_by(shopify_domain: "acme.myshopify.com")
+    assert shop
+    assert_includes shop.scope, "write_products"
   end
 
-  test "callback rejects read_orders beyond allowed ceiling" do
+  test "callback rejects write_orders beyond allowed ceiling" do
     get shopify_install_path, params: { shop: "acme.myshopify.com" }
     state = session[:shopify_oauth_state]
 
-    fake_token = { "access_token" => "shpat_test_offline", "scope" => "read_products,read_orders" }
+    fake_token = { "access_token" => "shpat_test_offline", "scope" => "read_products,write_orders" }
     original = Shopify::Oauth.method(:exchange_code)
     Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
 
@@ -120,6 +124,33 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     assert_nil Shop.find_by(shopify_domain: "acme.myshopify.com")
+  end
+
+  test "callback accepts Phase B read_orders within allowed ceiling" do
+    get shopify_install_path, params: { shop: "acme.myshopify.com" }
+    state = session[:shopify_oauth_state]
+
+    fake_token = { "access_token" => "shpat_test_offline", "scope" => "read_products,read_orders" }
+    original = Shopify::Oauth.method(:exchange_code)
+    Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
+    stub_webhook_registrar!
+    stub_web_pixel_registrar!
+
+    begin
+      get shopify_callback_path, params: signed_callback_params(
+        shop: "acme.myshopify.com",
+        code: "auth-code",
+        state: state
+      )
+    ensure
+      Shopify::Oauth.define_singleton_method(:exchange_code, original)
+    end
+
+    assert_response :success
+    assert_match(/Sellora installed on acme\.myshopify\.com/, response.body)
+    shop = Shop.find_by(shopify_domain: "acme.myshopify.com")
+    assert shop
+    assert_includes shop.scope, "read_orders"
   end
 
   test "callback oauth_error is actionable without leaking secrets" do

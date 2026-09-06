@@ -9,7 +9,8 @@ class Shopify::CatalogSyncJobTest < ActiveSupport::TestCase
     @shop = Shop.create!(
       shopify_domain: "job-shop.myshopify.com",
       access_token: "shpat_job",
-      scope: "read_products,read_inventory,read_locations"
+      scope: "read_products,read_inventory,read_locations",
+      account: Account.create!(name: "Job Shop")
     )
   end
 

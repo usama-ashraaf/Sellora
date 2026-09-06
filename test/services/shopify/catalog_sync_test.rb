@@ -7,12 +7,14 @@ class Shopify::CatalogSyncTest < ActiveSupport::TestCase
     @shop = Shop.create!(
       shopify_domain: "outfitters-like.myshopify.com",
       access_token: "shpat_test_token",
-      scope: "read_products,read_inventory,read_locations"
+      scope: "read_products,read_inventory,read_locations",
+      account: Account.create!(name: "Sync Outfitters")
     )
     @shop_b = Shop.create!(
       shopify_domain: "sapphire-like.myshopify.com",
       access_token: "shpat_test_token_b",
-      scope: "read_products,read_inventory,read_locations"
+      scope: "read_products,read_inventory,read_locations",
+      account: Account.create!(name: "Sync Sapphire")
     )
   end
 

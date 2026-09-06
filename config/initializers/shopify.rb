@@ -7,9 +7,14 @@ module ShopifyConfig
   # Wave 1 web pixel activation (Usama approved 2026-09-06).
   PIXEL_SCOPES = %w[write_pixels read_customer_events].freeze
 
+  # Phase B order records (M3) — financial/fulfillment labels only; not COD collection.
+  PHASE_B_SCOPES = %w[read_orders].freeze
+
+  # Phase C reviewed actions (M5) — optional; still never silent-write without SELLORA_ALLOW_WRITES.
+  PHASE_C_SCOPES = %w[write_products].freeze
+
   # Hard OAuth ceiling — never accept a broader grant than this set.
-  # Still rejects write_products, read_orders, and other Phase B/C scopes.
-  ALLOWED_SCOPES = (PHASE_A_SCOPES + PIXEL_SCOPES).freeze
+  ALLOWED_SCOPES = (PHASE_A_SCOPES + PIXEL_SCOPES + PHASE_B_SCOPES + PHASE_C_SCOPES).freeze
 
   module_function
 
@@ -25,7 +30,7 @@ module ShopifyConfig
     ENV.fetch("SHOPIFY_APP_URL", "http://127.0.0.1:3000").to_s.chomp("/")
   end
 
-  # Defaults and ENV are clamped to ALLOWED_SCOPES (Phase A + pixel).
+  # Defaults and ENV are clamped to ALLOWED_SCOPES (Phase A + pixel + Phase B orders).
   def scopes
     requested = parse_scopes(ENV.fetch("SHOPIFY_SCOPES", ALLOWED_SCOPES.join(",")))
     allowed = requested.select { |scope| ALLOWED_SCOPES.include?(scope) }
@@ -58,7 +63,7 @@ module ShopifyConfig
     granted_list.all? { |scope| ALLOWED_SCOPES.include?(scope) }
   end
 
-  # Back-compat alias — ceiling is now PHASE_A + PIXEL (see ALLOWED_SCOPES).
+  # Back-compat alias — ceiling is PHASE_A + PIXEL + PHASE_B (see ALLOWED_SCOPES).
   def phase_a_scopes_subset?(granted)
     allowed_scopes_subset?(granted)
   end

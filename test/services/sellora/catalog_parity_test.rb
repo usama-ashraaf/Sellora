@@ -7,12 +7,14 @@ class Sellora::CatalogParityTest < ActiveSupport::TestCase
     @shop_a = Shop.create!(
       shopify_domain: "sellora-test-outfitters-like.myshopify.com",
       access_token: "shpat_parity_a",
-      scope: "read_products,read_inventory,read_locations"
+      scope: "read_products,read_inventory,read_locations",
+      account: Account.create!(name: "Parity Outfitters")
     )
     @shop_b = Shop.create!(
       shopify_domain: "sellora-test-sapphire-like.myshopify.com",
       access_token: "shpat_parity_b",
-      scope: "read_products,read_inventory,read_locations"
+      scope: "read_products,read_inventory,read_locations",
+      account: Account.create!(name: "Parity Sapphire")
     )
   end
 

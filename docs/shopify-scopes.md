@@ -33,8 +33,8 @@ Principle: **least privilege**. Enable only what the current milestone needs. Ne
 
 Rails requests these on install and registers the pixel via `Shopify::WebPixelRegistrar` (see [web-pixel.md](./web-pixel.md)). **Partner Dev Dashboard must also list both scopes** (Eng saves via browser separately).
 
-### Phase B — M3 orders + M4 monitoring (parked)
-Add when building order/outcome + promo monitoring:
+### Phase B — M3 orders (enabled for local Wave 1)
+Enabled for M3 order records. Promo/discount scopes still parked:
 | Scope | Why |
 |-------|-----|
 | `read_orders` | Orders, line items, financial/fulfillment status (not proof of COD collection) |
@@ -64,9 +64,9 @@ Same write scopes as Phase C; no new scopes expected. Controls are product/ops (
 - Any scope that exposes storefront private credentials into JS (never)
 
 ## Current decision (2026-09-06)
-- **Installed / enabled for Wave 1:** Phase A + pixel (`write_pixels`, `read_customer_events`)  
-- **OAuth ceiling:** `ShopifyConfig::ALLOWED_SCOPES` (still rejects `write_products` / `read_orders`)  
-- **Parked:** Phase B orders until order path / M4 starts  
+- **Installed / enabled for Wave 1:** Phase A + pixel + Phase B `read_orders`  
+- **OAuth ceiling:** `ShopifyConfig::ALLOWED_SCOPES` (still rejects `write_products`)  
+- **Order sync:** see [order-sync.md](./order-sync.md)  
 - **Approved in principle, not enabled:** Phase C at M5  
 - Eng must verify exact scope strings against current Shopify Admin API version before flipping in Partners.
 

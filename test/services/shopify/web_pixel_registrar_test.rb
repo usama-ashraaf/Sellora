@@ -37,7 +37,9 @@ class Shopify::WebPixelRegistrarTest < ActiveSupport::TestCase
       assert_equal "gid://shopify/WebPixel/1", result[:id]
       assert_equal desired, result[:settings]
       assert_equal @account.id.to_s, result[:settings]["accountID"]
+      assert_equal @shop.shopify_domain, result[:settings]["shopDomain"]
       assert_equal "https://tunnel.example/web_pixels/events", result[:settings]["ingestUrl"]
+      assert_equal Activity::PixelToken.issue(@shop), result[:settings]["ingestToken"]
     end
   end
 
@@ -100,13 +102,17 @@ class Shopify::WebPixelRegistrarTest < ActiveSupport::TestCase
     orphan = Shop.create!(
       shopify_domain: "orphan.myshopify.com",
       access_token: "shpat_orphan",
-      scope: "write_pixels"
+      scope: "write_pixels",
+      account: Account.create!(name: "Orphan Temp")
     )
+    orphan.update_columns(account_id: nil)
     settings = Shopify::WebPixelRegistrar.settings_for(orphan)
     assert_equal orphan.id.to_s, settings["accountID"]
   end
 
   private
+
+  ORIGINAL_ADMIN_CLIENT_NEW = Shopify::AdminClient.method(:new)
 
   def stub_graphql_sequence(payloads)
     queue = payloads.dup
@@ -118,7 +124,6 @@ class Shopify::WebPixelRegistrarTest < ActiveSupport::TestCase
       queue.shift
     end
 
-    original = Shopify::AdminClient.method(:new)
     Shopify::AdminClient.define_singleton_method(:new) do |shop|
       raise "unexpected shop" unless shop.id == expected_shop_id
       client
@@ -126,6 +131,6 @@ class Shopify::WebPixelRegistrarTest < ActiveSupport::TestCase
 
     yield
   ensure
-    Shopify::AdminClient.define_singleton_method(:new, original)
+    Shopify::AdminClient.define_singleton_method(:new, ORIGINAL_ADMIN_CLIENT_NEW)
   end
 end

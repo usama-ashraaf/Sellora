@@ -104,7 +104,7 @@ namespace :sellora do
 
     result = Shopify::WebPixelRegistrar.call(shop)
     puts "Registered web pixel shop_id=#{result[:shop_id]} domain=#{result[:shopify_domain]} status=#{result[:status]} id=#{result[:id]}"
-    puts "  settings=#{result[:settings].inspect}"
+    puts "  shop_domain=#{result[:settings]['shopDomain']} ingest_url=#{result[:settings]['ingestUrl']}"
   end
 
   desc "Register / update Sellora web pixel for every installed shop"
@@ -115,9 +115,61 @@ namespace :sellora do
     shops.each do |shop|
       result = Shopify::WebPixelRegistrar.call(shop)
       puts "Registered web pixel shop_id=#{result[:shop_id]} domain=#{result[:shopify_domain]} status=#{result[:status]} id=#{result[:id]}"
-      puts "  settings=#{result[:settings].inspect}"
+      puts "  shop_domain=#{result[:settings]['shopDomain']} ingest_url=#{result[:settings]['ingestUrl']}"
     rescue Shopify::AdminClient::Error, Shopify::WebPixelRegistrar::Error => e
       warn "FAILED #{shop.shopify_domain}: #{e.message}"
     end
+  end
+
+  desc "M4 discovery for one shop: catalog sync → audit → recommendations"
+  task :discover, [ :shop_domain ] => :environment do |_t, args|
+    domain = Shop.normalize_domain(args[:shop_domain])
+    abort "Usage: bin/rails sellora:discover[shop-domain.myshopify.com]" if domain.blank?
+    shop = Shop.find_by(shopify_domain: domain)
+    abort "No shop row for #{domain}" if shop.nil?
+    abort "Shop #{domain} is not installed" unless shop.installed?
+
+    result = Pilot::Discover.call(shop: shop, sync: true)
+    puts "Discover shop_id=#{result[:shop_id]} products=#{result[:sync][:products]} findings=#{result[:audit_findings]} skipped=#{result[:audit_skipped]} recommendations=#{result[:recommendations]}"
+  end
+
+  desc "M4 discovery for every installed shop (enqueue jobs)"
+  task discover_all: :environment do
+    Pilot::DailyDiscoveryJob.perform_now
+    puts "Enqueued DiscoverShopJob for #{Shop.installed.count} shops"
+  end
+
+  desc "M5 propose a reviewed action from recommendation id"
+  task :propose_action, [ :recommendation_id ] => :environment do |_t, args|
+    rec = Recommendation.find(args[:recommendation_id])
+    action = Pilot::ReviewedActions.propose!(recommendation: rec, actor_email: "ops@sellora.local")
+    puts "Proposed reviewed_action id=#{action.id} status=#{action.status}"
+  end
+
+  desc "M5 approve then apply a reviewed action id (local apply unless SELLORA_ALLOW_WRITES)"
+  task :apply_action, [ :action_id ] => :environment do |_t, args|
+    action = ReviewedAction.find(args[:action_id])
+    Pilot::ReviewedActions.approve!(action, actor_email: "ops@sellora.local") unless action.approved?
+    action = Pilot::ReviewedActions.apply!(action, actor_email: "ops@sellora.local")
+    puts "Action id=#{action.id} status=#{action.status} message=#{action.result_message}"
+  end
+
+  desc "M6 run autopilot for one shop (no-op unless policy.enabled)"
+  task :autopilot, [ :shop_domain ] => :environment do |_t, args|
+    domain = Shop.normalize_domain(args[:shop_domain])
+    shop = Shop.find_by(shopify_domain: domain)
+    abort "Shop not found/installed" unless shop&.installed?
+    result = Pilot::Autopilot.call(shop: shop)
+    puts "Autopilot #{result.inspect}"
+  end
+
+  desc "M6 kill switch for one shop"
+  task :autopilot_kill, [ :shop_domain ] => :environment do |_t, args|
+    domain = Shop.normalize_domain(args[:shop_domain])
+    shop = Shop.find_by(shopify_domain: domain)
+    abort "Shop not found" if shop.nil?
+    policy = Pilot::Autopilot.ensure_policy!(shop)
+    policy.kill_switch!
+    puts "Kill switch on shop=#{domain} enabled=#{policy.enabled?}"
   end
 end

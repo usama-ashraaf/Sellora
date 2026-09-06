@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_06_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_07_030000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -50,12 +50,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_06_180000) do
     t.string "status", default: "open", null: false
     t.string "suggested_action"
     t.datetime "updated_at", null: false
+    t.index "shop_id, audit_rule_id, COALESCE(catalog_product_id, (0)::bigint), COALESCE(catalog_variant_id, (0)::bigint)", name: "index_audit_findings_on_natural_key", unique: true
     t.index ["account_id", "shop_id", "status"], name: "index_audit_findings_on_account_id_and_shop_id_and_status"
     t.index ["account_id"], name: "index_audit_findings_on_account_id"
     t.index ["audit_rule_id"], name: "index_audit_findings_on_audit_rule_id"
     t.index ["catalog_product_id"], name: "index_audit_findings_on_catalog_product_id"
     t.index ["catalog_variant_id"], name: "index_audit_findings_on_catalog_variant_id"
-    t.index ["shop_id", "audit_rule_id", "catalog_product_id", "catalog_variant_id"], name: "index_audit_findings_on_natural_key", unique: true, nulls_not_distinct: true
     t.index ["shop_id", "audit_rule_id"], name: "index_audit_findings_on_shop_id_and_audit_rule_id"
     t.index ["shop_id"], name: "index_audit_findings_on_shop_id"
   end
@@ -84,6 +84,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_06_180000) do
     t.index ["audit_rule_set_id"], name: "index_audit_rules_on_audit_rule_set_id"
   end
 
+  create_table "autopilot_policies", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.jsonb "allowed_action_kinds", default: [], null: false
+    t.integer "cooldown_hours", default: 24, null: false
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: false, null: false
+    t.datetime "kill_switch_at"
+    t.string "kill_switch_reason"
+    t.decimal "margin_floor_pct", precision: 5, scale: 2
+    t.integer "max_actions_per_day", default: 5, null: false
+    t.string "min_severity", default: "high", null: false
+    t.boolean "require_in_stock", default: true, null: false
+    t.bigint "shop_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_autopilot_policies_on_account_id"
+    t.index ["shop_id"], name: "index_autopilot_policies_on_shop_id", unique: true
+  end
+
   create_table "catalog_inventory_levels", force: :cascade do |t|
     t.integer "available", default: 0, null: false
     t.bigint "catalog_variant_id", null: false
@@ -95,14 +113,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_06_180000) do
   end
 
   create_table "catalog_products", force: :cascade do |t|
+    t.datetime "content_checked_at"
+    t.string "content_fingerprint"
     t.datetime "created_at", null: false
     t.string "external_id", null: false
+    t.datetime "freshness_checked_at"
     t.string "handle"
     t.jsonb "raw_attrs", default: {}, null: false
+    t.string "rule_set_version"
     t.bigint "shop_id", null: false
     t.string "status", default: "active", null: false
     t.string "title", null: false
     t.datetime "updated_at", null: false
+    t.index ["shop_id", "content_fingerprint"], name: "index_catalog_products_on_shop_and_fingerprint"
     t.index ["shop_id", "external_id"], name: "index_catalog_products_on_shop_id_and_external_id", unique: true
     t.index ["shop_id", "handle"], name: "index_catalog_products_on_shop_id_and_handle"
     t.index ["shop_id"], name: "index_catalog_products_on_shop_id"
@@ -121,6 +144,45 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_06_180000) do
     t.index ["catalog_product_id", "external_id"], name: "index_catalog_variants_on_product_and_external_id", unique: true
     t.index ["catalog_product_id"], name: "index_catalog_variants_on_catalog_product_id"
     t.index ["sku"], name: "index_catalog_variants_on_sku"
+  end
+
+  create_table "commerce_order_lines", force: :cascade do |t|
+    t.bigint "commerce_order_id", null: false
+    t.datetime "created_at", null: false
+    t.string "external_id", null: false
+    t.decimal "price", precision: 12, scale: 2
+    t.string "product_external_id"
+    t.integer "quantity", default: 0, null: false
+    t.jsonb "raw_attrs", default: {}, null: false
+    t.string "sku"
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.string "variant_external_id"
+    t.index ["commerce_order_id", "external_id"], name: "index_commerce_order_lines_on_order_and_external", unique: true
+    t.index ["commerce_order_id"], name: "index_commerce_order_lines_on_commerce_order_id"
+  end
+
+  create_table "commerce_orders", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "cancel_reason"
+    t.datetime "cancelled_at"
+    t.datetime "created_at", null: false
+    t.string "currency", default: "PKR", null: false
+    t.string "external_id", null: false
+    t.string "financial_status"
+    t.string "fulfillment_status"
+    t.string "name"
+    t.datetime "processed_at"
+    t.jsonb "raw_attrs", default: {}, null: false
+    t.bigint "shop_id", null: false
+    t.decimal "subtotal_price", precision: 12, scale: 2
+    t.decimal "total_discounts", precision: 12, scale: 2
+    t.decimal "total_price", precision: 12, scale: 2
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "processed_at"], name: "index_commerce_orders_on_account_id_and_processed_at"
+    t.index ["account_id"], name: "index_commerce_orders_on_account_id"
+    t.index ["shop_id", "external_id"], name: "index_commerce_orders_on_shop_id_and_external_id", unique: true
+    t.index ["shop_id"], name: "index_commerce_orders_on_shop_id"
   end
 
   create_table "memberships", force: :cascade do |t|
@@ -147,10 +209,62 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_06_180000) do
     t.index ["email"], name: "index_pilot_requests_on_email"
   end
 
+  create_table "recommendations", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "audit_finding_id"
+    t.bigint "catalog_product_id"
+    t.datetime "created_at", null: false
+    t.jsonb "evidence", default: {}, null: false
+    t.string "kind", null: false
+    t.string "priority", default: "medium", null: false
+    t.text "rationale", null: false
+    t.bigint "shop_id", null: false
+    t.string "status", default: "open", null: false
+    t.string "suggested_action"
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "shop_id", "kind"], name: "index_recommendations_on_account_id_and_shop_id_and_kind"
+    t.index ["account_id"], name: "index_recommendations_on_account_id"
+    t.index ["audit_finding_id"], name: "index_recommendations_on_audit_finding_id"
+    t.index ["catalog_product_id"], name: "index_recommendations_on_catalog_product_id"
+    t.index ["shop_id", "status", "priority"], name: "index_recommendations_on_shop_id_and_status_and_priority"
+    t.index ["shop_id"], name: "index_recommendations_on_shop_id"
+  end
+
+  create_table "reviewed_actions", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "action_kind", null: false
+    t.string "actor_email"
+    t.jsonb "after_snapshot", default: {}, null: false
+    t.datetime "applied_at"
+    t.datetime "approved_at"
+    t.bigint "audit_finding_id"
+    t.jsonb "before_snapshot", default: {}, null: false
+    t.string "conflict_reason"
+    t.datetime "created_at", null: false
+    t.datetime "failed_at"
+    t.bigint "recommendation_id"
+    t.datetime "rejected_at"
+    t.text "result_message"
+    t.bigint "shop_id", null: false
+    t.string "source_fingerprint"
+    t.string "status", default: "draft", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_reviewed_actions_on_account_id_and_created_at"
+    t.index ["account_id"], name: "index_reviewed_actions_on_account_id"
+    t.index ["audit_finding_id"], name: "index_reviewed_actions_on_audit_finding_id"
+    t.index ["recommendation_id"], name: "index_reviewed_actions_on_recommendation_id"
+    t.index ["shop_id", "status"], name: "index_reviewed_actions_on_shop_id_and_status"
+    t.index ["shop_id"], name: "index_reviewed_actions_on_shop_id"
+  end
+
   create_table "shops", force: :cascade do |t|
     t.text "access_token"
     t.bigint "account_id"
     t.datetime "created_at", null: false
+    t.datetime "last_audited_at"
+    t.datetime "last_discovered_at"
+    t.datetime "last_recommendation_at"
     t.string "scope"
     t.string "shopify_domain", null: false
     t.datetime "uninstalled_at"
@@ -186,10 +300,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_06_180000) do
   add_foreign_key "audit_findings", "catalog_variants"
   add_foreign_key "audit_findings", "shops"
   add_foreign_key "audit_rules", "audit_rule_sets"
+  add_foreign_key "autopilot_policies", "accounts"
+  add_foreign_key "autopilot_policies", "shops"
   add_foreign_key "catalog_inventory_levels", "catalog_variants"
   add_foreign_key "catalog_products", "shops"
   add_foreign_key "catalog_variants", "catalog_products"
+  add_foreign_key "commerce_order_lines", "commerce_orders"
+  add_foreign_key "commerce_orders", "accounts"
+  add_foreign_key "commerce_orders", "shops"
   add_foreign_key "memberships", "accounts"
   add_foreign_key "memberships", "users"
+  add_foreign_key "recommendations", "accounts"
+  add_foreign_key "recommendations", "audit_findings"
+  add_foreign_key "recommendations", "catalog_products"
+  add_foreign_key "recommendations", "shops"
+  add_foreign_key "reviewed_actions", "accounts"
+  add_foreign_key "reviewed_actions", "audit_findings"
+  add_foreign_key "reviewed_actions", "recommendations"
+  add_foreign_key "reviewed_actions", "shops"
   add_foreign_key "shops", "accounts"
 end

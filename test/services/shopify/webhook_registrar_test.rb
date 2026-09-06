@@ -8,7 +8,8 @@ class Shopify::WebhookRegistrarTest < ActiveSupport::TestCase
     @shop = Shop.create!(
       shopify_domain: "outfitters-like.myshopify.com",
       access_token: "shpat_test_token",
-      scope: "read_products,read_inventory,read_locations"
+      scope: "read_products,read_inventory,read_locations",
+      account: Account.create!(name: "Webhook Registrar Shop")
     )
   end
 
@@ -16,19 +17,19 @@ class Shopify::WebhookRegistrarTest < ActiveSupport::TestCase
     ENV.delete("SHOPIFY_APP_URL")
   end
 
-  test "creates all Phase A topics when none exist" do
+  test "creates all Phase A and Phase B topics when none exist" do
     responses = [
       list_payload([]),
-      *Shopify::WebhookRegistrar::PHASE_A_TOPICS.keys.map { |topic| create_payload(topic) }
+      *Shopify::WebhookRegistrar::TOPICS.keys.map { |topic| create_payload(topic) }
     ]
 
     stub_graphql_sequence(responses) do
       result = Shopify::WebhookRegistrar.call(@shop)
       assert_equal @shop.id, result[:shop_id]
-      assert_equal 5, result[:subscriptions].size
+      assert_equal 7, result[:subscriptions].size
       assert result[:subscriptions].all? { |s| s[:status] == :created }
       topics = result[:subscriptions].map { |s| s[:topic] }
-      assert_equal Shopify::WebhookRegistrar::PHASE_A_TOPICS.keys, topics
+      assert_equal Shopify::WebhookRegistrar::TOPICS.keys, topics
       assert_equal(
         "https://tunnel.example/webhooks/shopify/products_create",
         result[:subscriptions].first[:uri]
@@ -37,7 +38,7 @@ class Shopify::WebhookRegistrarTest < ActiveSupport::TestCase
   end
 
   test "is idempotent when topics already point at app_url paths" do
-    existing = Shopify::WebhookRegistrar::PHASE_A_TOPICS.map do |topic, path|
+    existing = Shopify::WebhookRegistrar::TOPICS.map do |topic, path|
       {
         "id" => "gid://shopify/WebhookSubscription/#{topic}",
         "topic" => topic,
@@ -47,7 +48,7 @@ class Shopify::WebhookRegistrarTest < ActiveSupport::TestCase
 
     stub_graphql_sequence([ list_payload(existing) ]) do
       result = Shopify::WebhookRegistrar.call(@shop)
-      assert_equal 5, result[:subscriptions].size
+      assert_equal 7, result[:subscriptions].size
       assert result[:subscriptions].all? { |s| s[:status] == :already_registered }
     end
   end
@@ -60,11 +61,11 @@ class Shopify::WebhookRegistrarTest < ActiveSupport::TestCase
         "uri" => "https://old-tunnel.example/webhooks/shopify/products_create"
       }
     ]
-    # Remaining Phase A topics absent → create; PRODUCTS_CREATE → update
+    # Remaining topics absent → create; PRODUCTS_CREATE → update
     responses = [
       list_payload(existing),
       update_payload("PRODUCTS_CREATE", "gid://shopify/WebhookSubscription/1"),
-      *%w[PRODUCTS_UPDATE PRODUCTS_DELETE INVENTORY_LEVELS_UPDATE APP_UNINSTALLED].map { |t| create_payload(t) }
+      *%w[PRODUCTS_UPDATE PRODUCTS_DELETE INVENTORY_LEVELS_UPDATE APP_UNINSTALLED ORDERS_CREATE ORDERS_UPDATED].map { |t| create_payload(t) }
     ]
 
     stub_graphql_sequence(responses) do
@@ -93,7 +94,7 @@ class Shopify::WebhookRegistrarTest < ActiveSupport::TestCase
           "uri" => "https://tunnel.example/webhooks/shopify/products_create"
         }
       ]),
-      *%w[PRODUCTS_UPDATE PRODUCTS_DELETE INVENTORY_LEVELS_UPDATE APP_UNINSTALLED].map { |t| create_payload(t) }
+      *%w[PRODUCTS_UPDATE PRODUCTS_DELETE INVENTORY_LEVELS_UPDATE APP_UNINSTALLED ORDERS_CREATE ORDERS_UPDATED].map { |t| create_payload(t) }
     ]
 
     stub_graphql_sequence(responses) do
@@ -139,7 +140,7 @@ class Shopify::WebhookRegistrarTest < ActiveSupport::TestCase
   end
 
   def create_payload(topic)
-    path = Shopify::WebhookRegistrar::PHASE_A_TOPICS.fetch(topic)
+    path = Shopify::WebhookRegistrar::TOPICS.fetch(topic)
     {
       "webhookSubscriptionCreate" => {
         "webhookSubscription" => {
@@ -153,7 +154,7 @@ class Shopify::WebhookRegistrarTest < ActiveSupport::TestCase
   end
 
   def update_payload(topic, id)
-    path = Shopify::WebhookRegistrar::PHASE_A_TOPICS.fetch(topic)
+    path = Shopify::WebhookRegistrar::TOPICS.fetch(topic)
     {
       "webhookSubscriptionUpdate" => {
         "webhookSubscription" => {
@@ -166,6 +167,8 @@ class Shopify::WebhookRegistrarTest < ActiveSupport::TestCase
     }
   end
 
+  ORIGINAL_ADMIN_CLIENT_NEW = Shopify::AdminClient.method(:new)
+
   def stub_graphql_sequence(payloads)
     queue = payloads.dup
     expected_shop_id = @shop.id
@@ -176,7 +179,6 @@ class Shopify::WebhookRegistrarTest < ActiveSupport::TestCase
       queue.shift
     end
 
-    original = Shopify::AdminClient.method(:new)
     Shopify::AdminClient.define_singleton_method(:new) do |shop|
       raise "unexpected shop" unless shop.id == expected_shop_id
       client
@@ -184,6 +186,6 @@ class Shopify::WebhookRegistrarTest < ActiveSupport::TestCase
 
     yield
   ensure
-    Shopify::AdminClient.define_singleton_method(:new, original)
+    Shopify::AdminClient.define_singleton_method(:new, ORIGINAL_ADMIN_CLIENT_NEW)
   end
 end

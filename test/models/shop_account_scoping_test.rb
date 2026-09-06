@@ -12,11 +12,9 @@ class ShopAccountScopingTest < ActiveSupport::TestCase
     assert_equal [ shop_a ], Shop.for_account(a).to_a
   end
 
-  test "shop may be created without account then assigned" do
-    shop = Shop.create!(shopify_domain: "nullable.myshopify.com", access_token: "t", scope: "read_products")
-    assert_nil shop.account_id
-    account = Account.demo!
-    shop.update!(account: account)
-    assert_equal account.id, shop.reload.account_id
+  test "shop requires an account" do
+    shop = Shop.new(shopify_domain: "nullable.myshopify.com", access_token: "t", scope: "read_products")
+    assert_not shop.valid?
+    assert_includes shop.errors[:account], "must exist"
   end
 end

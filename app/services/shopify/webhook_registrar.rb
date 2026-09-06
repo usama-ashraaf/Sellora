@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 module Shopify
-  # Registers Phase A Admin webhook subscriptions via GraphQL (idempotent).
-  # Phase B orders webhooks are intentionally out of scope (pixel uses WebPixelRegistrar).
+  # Registers Admin webhook subscriptions via GraphQL (idempotent).
+  # Phase A catalog + uninstall; Phase B order create/update.
   class WebhookRegistrar
     Error = Class.new(StandardError)
 
@@ -14,6 +14,13 @@ module Shopify
       "INVENTORY_LEVELS_UPDATE" => "inventory_levels_update",
       "APP_UNINSTALLED" => "app_uninstalled"
     }.freeze
+
+    PHASE_B_TOPICS = {
+      "ORDERS_CREATE" => "orders_create",
+      "ORDERS_UPDATED" => "orders_updated"
+    }.freeze
+
+    TOPICS = PHASE_A_TOPICS.merge(PHASE_B_TOPICS).freeze
 
     LIST_QUERY = <<~GRAPHQL.freeze
       query SelloraWebhookSubscriptions($cursor: String) {
@@ -93,7 +100,7 @@ module Shopify
     # status is :created, :updated, or :already_registered
     def call
       existing_by_topic = index_existing_subscriptions
-      results = PHASE_A_TOPICS.map do |topic, path|
+      results = TOPICS.map do |topic, path|
         ensure_topic!(topic, path, existing_by_topic[topic])
       end
 
@@ -130,7 +137,7 @@ module Shopify
       list_all_subscriptions.each_with_object({}) do |node, index|
         topic = normalize_topic(node["topic"])
         next if topic.blank?
-        next unless PHASE_A_TOPICS.key?(topic)
+        next unless TOPICS.key?(topic)
 
         # Prefer keeping the first match; updates will retarget URI if needed.
         index[topic] ||= node

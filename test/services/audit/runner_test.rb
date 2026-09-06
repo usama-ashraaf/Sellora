@@ -20,7 +20,7 @@ class Audit::RunnerTest < ActiveSupport::TestCase
       product.catalog_variants.create!(external_id: "v#{i}", title: size, option_summary: size, sku: "SF-HOOD-#{size}")
     end
 
-    findings = Audit::Runner.call(shop: @shop, rule_set: @rule_set)
+    findings = Audit::Runner.call(shop: @shop, rule_set: @rule_set).findings
     gap = findings.find { |f| f.audit_rule.rule_key == "size_gap" }
     assert gap, "expected size_gap finding"
     assert_equal @account.id, gap.account_id
@@ -31,7 +31,7 @@ class Audit::RunnerTest < ActiveSupport::TestCase
     product = @shop.catalog_products.create!(external_id: "p2", title: "Riverstone Fabric Pack", status: "active")
     product.catalog_variants.create!(external_id: "v-def", title: "Default Title", option_summary: nil, sku: "SF-NOSIZE-DEF")
 
-    findings = Audit::Runner.call(shop: @shop, rule_set: @rule_set)
+    findings = Audit::Runner.call(shop: @shop, rule_set: @rule_set).findings
     miss = findings.find { |f| f.audit_rule.rule_key == "missing_size_attr" }
     assert miss, "expected missing_size_attr finding"
   end
@@ -49,7 +49,7 @@ class Audit::RunnerTest < ActiveSupport::TestCase
     )
     product.catalog_variants.create!(external_id: "v-xl", title: "XL", option_summary: "XL", sku: "SF-HOOD-XL")
 
-    findings = Audit::Runner.call(shop: @shop, rule_set: @rule_set)
+    findings = Audit::Runner.call(shop: @shop, rule_set: @rule_set).findings
     anomaly = findings.find { |f| f.audit_rule.rule_key == "compare_at_anomaly" }
     assert anomaly, "expected compare_at_anomaly finding"
   end
@@ -59,14 +59,41 @@ class Audit::RunnerTest < ActiveSupport::TestCase
       product.catalog_variants.create!(external_id: "vd#{i}", title: size, option_summary: size, sku: "SF-GAP-#{size}")
     end
 
-    first = Audit::Runner.call(shop: @shop, rule_set: @rule_set)
+    first = Audit::Runner.call(shop: @shop, rule_set: @rule_set).findings
     assert first.any? { |f| f.audit_rule.rule_key == "size_gap" }
     count_after_first = AuditFinding.for_shop(@shop).count
     assert count_after_first.positive?
 
     second = Audit::Runner.call(shop: @shop, rule_set: @rule_set)
-    assert second.any? { |f| f.audit_rule.rule_key == "size_gap" }
+    assert AuditFinding.for_shop(@shop).joins(:audit_rule).where(audit_rules: { rule_key: "size_gap" }).exists?
     assert_equal count_after_first, AuditFinding.for_shop(@shop).count
+    assert_operator second.skipped, :>=, 1
   end
 
+  test "skips unchanged content when fingerprint matches" do
+    product = @shop.catalog_products.create!(external_id: "p-skip", title: "Stable Tee", status: "active")
+    product.catalog_variants.create!(external_id: "vs1", title: "M", option_summary: "M", sku: "SF-ST-M")
+    Audit::Runner.call(shop: @shop, rule_set: @rule_set, force: true)
+    product.reload
+    assert product.content_fingerprint.present?
+
+    result = Audit::Runner.call(shop: @shop, rule_set: @rule_set, force: false)
+    assert_operator result.skipped, :>=, 1
+  end
+
+  test "force re-runs content rules" do
+    product = @shop.catalog_products.create!(external_id: "p-force", title: "Gap Tee", status: "active")
+    %w[S L XL].each_with_index do |size, i|
+      product.catalog_variants.create!(external_id: "vf#{i}", title: size, option_summary: size, sku: "SF-F-#{size}")
+    end
+    Audit::Runner.call(shop: @shop, rule_set: @rule_set)
+    forced = Audit::Runner.call(shop: @shop, rule_set: @rule_set, force: true)
+    assert_equal 0, forced.skipped
+  end
+
+  test "rejects shop without account" do
+    assert_raises(ArgumentError, match: /no account/) do
+      Audit::Runner.call(shop: Shop.new(shopify_domain: "orphan-audit.myshopify.com"), rule_set: @rule_set)
+    end
+  end
 end

@@ -39,3 +39,8 @@
 
 # Never commit local bundler installs.
 /vendor/bundle
+
+# Shopify CLI and extension build artifacts.
+node_modules/
+/.shopify/
+/extensions/*/dist/

@@ -18,11 +18,14 @@ Rails.application.routes.draw do
     post "products_update", to: "shopify#receive", defaults: { topic: "products_update" }
     post "products_delete", to: "shopify#receive", defaults: { topic: "products_delete" }
     post "inventory_levels_update", to: "shopify#receive", defaults: { topic: "inventory_levels_update" }
+    post "orders_create", to: "shopify#receive", defaults: { topic: "orders_create" }
+    post "orders_updated", to: "shopify#receive", defaults: { topic: "orders_updated" }
     post "app_uninstalled", to: "shopify#receive", defaults: { topic: "app_uninstalled" }
   end
 
-  # Web Pixel ingest stub (shared secret). Consent-aware; see docs/web-pixel.md.
+  # Web Pixel ingest (installation token or shared secret). Consent-aware; see docs/web-pixel.md.
   post "web_pixels/events", to: "web_pixels/events#create", as: :web_pixel_events
+  match "web_pixels/events", to: "web_pixels/events#preflight", via: :options
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   # Can be used by load balancers and uptime monitors to verify that the app is live.

@@ -1,6 +1,6 @@
 <main>
   <h1>Sellora</h1>
-  <p class="muted">Shopify embedded app home (Phase A)</p>
+  <p class="muted">Read-only pilot ops (M4) · reviewed actions (M5) · bounded autopilot (M6)</p>
 
   <% if @shop_domain.present? && @shop_domain.match?(Shop::DOMAIN_FORMAT) %>
     <div class="status ok">
@@ -22,19 +22,73 @@
   <% else %>
     <div class="status warn">
       No Shopify embed params (<code>shop</code> / <code>host</code> / <code>id_token</code>).
-      This page is meant to load inside Shopify Admin after Partner
-      <strong>App URL</strong> points at a public HTTPS host ending in <code>/shopify</code>.
-      Localhost App URLs always show a blank/broken embed in admin — use a tunnel.
+      Use a local HTTPS tunnel for Admin embed.
     </div>
   <% end %>
 
-  <h2 style="font-size:1.05rem;margin-top:1.25rem;">Wave 1 allowed scopes</h2>
+  <% if @pilot_ops %>
+    <h2 style="font-size:1.05rem;margin-top:1.25rem;">Pilot visibility</h2>
+    <ul>
+      <li>Products: <strong><%= @pilot_ops[:products] %></strong> · Orders mirrored: <strong><%= @pilot_ops[:orders] %></strong></li>
+      <li>Open findings: <strong><%= @open_findings_count %></strong></li>
+      <li>Last discovery: <code><%= @pilot_ops[:last_discovered_at] || "never" %></code></li>
+      <li>Last audit: <code><%= @pilot_ops[:last_audited_at] || "never" %></code></li>
+      <li>Last recommendations: <code><%= @pilot_ops[:last_recommendation_at] || "never" %></code></li>
+    </ul>
+    <p class="muted">Run <code>bin/rails "sellora:discover[<%= @shop_domain %>]"</code> for sync → audit → recommendations.</p>
+
+    <h2 style="font-size:1.05rem;margin-top:1.25rem;">Recommendations (read-only)</h2>
+    <% if @recommendations.blank? %>
+      <p class="muted">No open recommendations yet.</p>
+    <% else %>
+      <ul>
+        <% @recommendations.each do |rec| %>
+          <li>
+            <strong><%= rec.priority.upcase %></strong> · <%= rec.title %>
+            <div class="muted"><%= rec.rationale %></div>
+            <% if rec.suggested_action.present? %>
+              <div class="muted">Next: <%= rec.suggested_action %></div>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+
+    <h2 style="font-size:1.05rem;margin-top:1.25rem;">Reviewed actions (M5)</h2>
+    <% if @pending_actions.blank? %>
+      <p class="muted">No pending proposals. Propose via <code>Pilot::ReviewedActions.propose!</code> / rake.</p>
+    <% else %>
+      <ul>
+        <% @pending_actions.each do |action| %>
+          <li><code><%= action.status %></code> · <%= action.action_kind %> · #<%= action.id %></li>
+        <% end %>
+      </ul>
+    <% end %>
+    <% if @action_history.present? %>
+      <p class="muted">Recent history:</p>
+      <ul>
+        <% @action_history.each do |action| %>
+          <li><code><%= action.status %></code> · <%= action.action_kind %> · <%= action.result_message.to_s.truncate(80) %></li>
+        <% end %>
+      </ul>
+    <% end %>
+
+    <h2 style="font-size:1.05rem;margin-top:1.25rem;">Autopilot (M6)</h2>
+    <div class="status <%= @autopilot_policy.enabled? ? "warn" : "ok" %>">
+      Enabled: <strong><%= @autopilot_policy.enabled? %></strong>
+      · kill switch at: <code><%= @autopilot_policy.kill_switch_at || "off" %></code>
+      · allowed kinds: <code><%= Array(@autopilot_policy.allowed_action_kinds).presence || "none" %></code>
+    </div>
+    <p class="muted">Default is off. Enable only with merchant-selected kinds. Kill switch: <code>policy.kill_switch!</code></p>
+  <% end %>
+
+  <h2 style="font-size:1.05rem;margin-top:1.25rem;">Allowed OAuth scopes</h2>
   <ul>
     <% @allowed_scopes.each do |scope| %>
       <li><code><%= scope %></code></li>
     <% end %>
   </ul>
-  <p class="muted">Phase B <code>read_orders</code> / Phase C <code>write_products</code> are not enabled.</p>
+  <p class="muted">Default install ENV usually omits <code>write_products</code>. Shopify writes also require <code>SELLORA_ALLOW_WRITES=true</code>.</p>
 
   <h2 style="font-size:1.05rem;margin-top:1.25rem;">Install &amp; sync</h2>
   <ul>
@@ -45,8 +99,7 @@
         Install: <code>GET /shopify/install?shop=&lt;store&gt;.myshopify.com</code>
       <% end %>
     </li>
-    <li>Callback (Allowed redirection URL): <code>/auth/shopify/callback</code></li>
-    <li>Catalog sync docs: see <code>docs/catalog-sync.md</code> / <code>docs/shopify-install.md</code></li>
+    <li>Callback: <code>/auth/shopify/callback</code></li>
     <li>Configured <code>SHOPIFY_APP_URL</code>: <code><%= @app_url.presence || "(unset)" %></code></li>
   </ul>
 

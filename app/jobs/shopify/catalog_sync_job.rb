@@ -15,7 +15,17 @@ module Shopify
       return if shop.nil? || !shop.installed?
 
       ran = CatalogSyncLock.holding(shop.id) do
-        CatalogSync.call(shop)
+        result = CatalogSync.call(shop)
+        if shop.account.present?
+          begin
+            Audit::ClothingRulesSeed.call
+            Audit::Runner.call(shop: shop)
+            Pilot::Recommendations.call(shop: shop)
+          rescue ArgumentError, ActiveRecord::RecordInvalid => e
+            Rails.logger.warn("[catalog_sync] pilot follow-up skipped shop=#{shop.shopify_domain} error=#{e.message}")
+          end
+        end
+        result
       end
 
       unless ran

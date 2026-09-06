@@ -55,7 +55,7 @@ Activity::WebPixelIngest.call(
 ```
 
 - Missing or non-true analytics consent → `Activity::WebPixelIngest::ConsentDenied` (no row).
-- HTTP: `POST /web_pixels/events` with `X-Sellora-Pixel-Secret` (see [web-pixel.md](./web-pixel.md)).
+- HTTP: `POST /web_pixels/events` with `X-Sellora-Pixel-Token` (browser) or `X-Sellora-Pixel-Secret` (server/test) — see [web-pixel.md](./web-pixel.md).
 - Allowed Wave 1 names: `page_viewed`, `product_viewed`, `product_added_to_cart`.
 
 ## Phase A note
@@ -64,4 +64,4 @@ Shopify Phase A scopes only. Order / checkout payloads are out of scope until Ph
 
 ## Privacy
 
-Account / shop uninstall flows may delete or nullify related events per retention policy (document in M3 privacy hardening). Until then, treat events as merchant-scoped operational data.
+On Shopify uninstall, `Shop#mark_uninstalled!` **deletes** that shop’s `activity_events` (along with catalog and findings). Account-level rows and marketing `pilot_requests` follow [privacy-retention.md](./privacy-retention.md).

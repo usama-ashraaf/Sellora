@@ -6,12 +6,17 @@ class Shop < ApplicationRecord
   # Offline Admin API token — encrypted at rest via Active Record encryption.
   encrypts :access_token
 
-  belongs_to :account, optional: true
+  belongs_to :account
   has_many :catalog_products, dependent: :destroy
   has_many :audit_findings, dependent: :destroy
   has_many :activity_events, dependent: :nullify
+  has_many :commerce_orders, dependent: :destroy
+  has_many :recommendations, dependent: :destroy
+  has_many :reviewed_actions, dependent: :destroy
+  has_one :autopilot_policy, dependent: :destroy
 
   validates :shopify_domain, presence: true, uniqueness: true, format: { with: DOMAIN_FORMAT }
+  validates :account, presence: true
 
   before_validation :normalize_blank_access_token
 
@@ -22,10 +27,18 @@ class Shop < ApplicationRecord
     uninstalled_at.nil? && access_token.present?
   end
 
-  # Clears the offline token and purges platform-neutral catalog rows for this shop.
-  # Privacy: on uninstall we do not retain catalog_products / variants / inventory_levels.
+  # Clears the offline token and purges merchant-scoped operational data for this shop.
+  # Privacy: on uninstall we do not retain catalog, findings, activity, or order rows for the shop.
+  # Account / membership rows and marketing pilot_requests are separate (see docs/privacy-retention.md).
   def mark_uninstalled!
     transaction do
+      # Findings reference catalog rows; delete them before destroying products.
+      audit_findings.delete_all
+      recommendations.delete_all
+      reviewed_actions.delete_all
+      autopilot_policy&.destroy!
+      activity_events.delete_all
+      commerce_orders.find_each(&:destroy!)
       catalog_products.find_each(&:destroy!)
       update!(uninstalled_at: Time.current, access_token: nil)
     end

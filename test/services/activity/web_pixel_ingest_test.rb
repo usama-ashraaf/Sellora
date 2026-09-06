@@ -91,8 +91,18 @@ class Activity::WebPixelIngestTest < ActiveSupport::TestCase
     end
   end
 
+  test "payload allowlist drops personal data and nested secrets" do
+    event = Activity::WebPixelIngest.call(
+      shop_domain: @shop.shopify_domain, event_name: "page_viewed",
+      consent: { "analytics_processing_allowed" => true },
+      payload: { "id" => "safe-id", "email" => "private@example.com", "nested" => { "token" => "private" }, "name" => { "email" => "private" } }
+    )
+    assert_equal [ "consent", "id" ], event.payload.keys.sort
+  end
+
   test "rejects shop without account" do
-    orphan = Shop.create!(shopify_domain: "orphan.myshopify.com", access_token: "t", scope: "read_products")
+    orphan = Shop.create!(shopify_domain: "orphan.myshopify.com", access_token: "t", scope: "read_products", account: Account.create!(name: "Temp"))
+    orphan.update_columns(account_id: nil)
     assert_raises(Activity::WebPixelIngest::Error) do
       Activity::WebPixelIngest.call(
         shop_domain: orphan.shopify_domain,
