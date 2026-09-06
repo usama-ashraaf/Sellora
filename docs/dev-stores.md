@@ -23,7 +23,7 @@ Fictional Shopify **development stores** that mimic Pakistani clothing ecommerce
 - [x] Sellora app **installed** on Outfitters-like
 - [x] Sellora app **installed** on Sapphire-like
 - [ ] Catalog fixtures fully enriched (Dev Store Agent)
-- [ ] Reviewer hardens (token encryption, OAuth HMAC binding, scope assert, webhook ledger)
+- [x] Reviewer hardens (token encryption, OAuth HMAC binding, scope assert, webhook ledger)
 
 ## Usama test runbook (smoke)
 

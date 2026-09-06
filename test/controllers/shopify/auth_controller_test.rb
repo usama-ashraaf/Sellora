@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "openssl"
 
 class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
   setup do
@@ -36,13 +37,62 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     get shopify_install_path, params: { shop: "acme.myshopify.com" }
     assert_response :redirect
 
-    get shopify_callback_path, params: {
+    get shopify_callback_path, params: signed_callback_params(
       shop: "acme.myshopify.com",
       code: "fake-code",
       state: "totally-wrong-state"
+    )
+    assert_response :unauthorized
+    assert_match(/Invalid OAuth state/, response.body)
+  end
+
+  test "callback rejects shop mismatch against session" do
+    get shopify_install_path, params: { shop: "acme.myshopify.com" }
+    state = session[:shopify_oauth_state]
+
+    get shopify_callback_path, params: signed_callback_params(
+      shop: "other.myshopify.com",
+      code: "auth-code",
+      state: state
+    )
+    assert_response :unauthorized
+    assert_match(/Shop mismatch/, response.body)
+  end
+
+  test "callback rejects missing or invalid HMAC when secret configured" do
+    get shopify_install_path, params: { shop: "acme.myshopify.com" }
+    state = session[:shopify_oauth_state]
+
+    get shopify_callback_path, params: {
+      shop: "acme.myshopify.com",
+      code: "auth-code",
+      state: state
     }
     assert_response :unauthorized
-    assert_equal "Invalid OAuth state", response.body
+    assert_match(/Invalid OAuth HMAC/, response.body)
+  end
+
+  test "callback rejects broader than Phase A scopes" do
+    get shopify_install_path, params: { shop: "acme.myshopify.com" }
+    state = session[:shopify_oauth_state]
+
+    fake_token = { "access_token" => "shpat_test_offline", "scope" => "read_products,write_products" }
+    original = Shopify::Oauth.method(:exchange_code)
+    Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
+
+    begin
+      get shopify_callback_path, params: signed_callback_params(
+        shop: "acme.myshopify.com",
+        code: "auth-code",
+        state: state
+      )
+    ensure
+      Shopify::Oauth.define_singleton_method(:exchange_code, original)
+    end
+
+    assert_response :forbidden
+    assert_match(/Phase A/, response.body)
+    assert_nil Shop.find_by(shopify_domain: "acme.myshopify.com")
   end
 
   test "callback exchanges code and persists shop when state matches" do
@@ -55,11 +105,11 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
 
     begin
-      get shopify_callback_path, params: {
+      get shopify_callback_path, params: signed_callback_params(
         shop: "acme.myshopify.com",
         code: "auth-code",
         state: state
-      }
+      )
     ensure
       Shopify::Oauth.define_singleton_method(:exchange_code, original)
     end
@@ -69,5 +119,19 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     assert_equal "shpat_test_offline", shop.access_token
     assert shop.installed?
     assert_nil session[:shopify_oauth_state]
+  end
+
+  private
+
+  def signed_callback_params(shop:, code:, state:)
+    params = {
+      "shop" => shop,
+      "code" => code,
+      "state" => state,
+      "timestamp" => Time.now.to_i.to_s
+    }
+    message = params.sort.map { |k, v| "#{k}=#{v}" }.join("&")
+    params["hmac"] = OpenSSL::HMAC.hexdigest("SHA256", ENV.fetch("SHOPIFY_API_SECRET"), message)
+    params
   end
 end

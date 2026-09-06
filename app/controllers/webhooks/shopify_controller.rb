@@ -13,15 +13,24 @@ module Webhooks
     # POST /webhooks/shopify/inventory_levels_update
     # POST /webhooks/shopify/app_uninstalled
     def receive
-      case params[:topic].to_s
+      topic = params[:topic].to_s
+      unless %w[products_create products_update products_delete inventory_levels_update app_uninstalled].include?(topic)
+        return head :not_found
+      end
+
+      # Idempotency ledger: record once, skip duplicate deliveries.
+      unless claim_webhook_event!(topic)
+        Rails.logger.info("[shopify webhook] duplicate skipped topic=#{topic} shop=#{shop_domain} key=#{webhook_event_key}")
+        return head :ok
+      end
+
+      case topic
       when "products_create", "products_update", "products_delete"
         handle_products_stub
       when "inventory_levels_update"
         handle_inventory_stub
       when "app_uninstalled"
         handle_app_uninstalled
-      else
-        return head :not_found
       end
 
       head :ok
@@ -40,6 +49,24 @@ module Webhooks
     def shop_domain
       request.headers["X-Shopify-Shop-Domain"].presence ||
         Shop.normalize_domain(params.dig(:shop_domain))
+    end
+
+    def webhook_event_key
+      webhook_id = request.headers["X-Shopify-Webhook-Id"].presence
+      return "id:#{webhook_id}" if webhook_id.present?
+
+      # Fallback fingerprint when Shopify omits webhook id (tests / older deliveries).
+      hmac = request.headers["X-Shopify-Hmac-Sha256"].to_s
+      "fp:#{Digest::SHA256.hexdigest("#{shop_domain}|#{params[:topic]}|#{hmac}|#{request.raw_post}")}"
+    end
+
+    def claim_webhook_event!(topic)
+      domain = Shop.normalize_domain(shop_domain).presence || "unknown"
+      WebhookEvent.claim!(
+        shopify_domain: domain,
+        topic: topic,
+        event_key: webhook_event_key
+      )
     end
 
     def handle_products_stub

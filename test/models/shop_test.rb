@@ -19,4 +19,14 @@ class ShopTest < ActiveSupport::TestCase
     assert_nil shop.access_token
     assert_not shop.installed?
   end
+
+  test "access_token is encrypted at rest" do
+    shop = Shop.create!(shopify_domain: "secure.myshopify.com", access_token: "shpat_secret_value", scope: "read_products")
+    raw = Shop.connection.select_value(
+      Shop.sanitize_sql_array([ "SELECT access_token FROM shops WHERE id = ?", shop.id ])
+    )
+    assert raw.present?
+    assert_not_equal "shpat_secret_value", raw
+    assert_equal "shpat_secret_value", shop.reload.access_token
+  end
 end

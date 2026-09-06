@@ -3,9 +3,14 @@
 class Shop < ApplicationRecord
   DOMAIN_FORMAT = /\A[a-z0-9][a-z0-9\-]*\.myshopify\.com\z/i
 
+  # Offline Admin API token — encrypted at rest via Active Record encryption.
+  encrypts :access_token
+
   validates :shopify_domain, presence: true, uniqueness: true, format: { with: DOMAIN_FORMAT }
 
-  scope :installed, -> { where(uninstalled_at: nil).where.not(access_token: [nil, ""]) }
+  before_validation :normalize_blank_access_token
+
+  scope :installed, -> { where(uninstalled_at: nil).where.not(access_token: nil) }
 
   def installed?
     uninstalled_at.nil? && access_token.present?
@@ -23,5 +28,11 @@ class Shop < ApplicationRecord
     host = host.split("/").first.to_s
     host = host.split("?").first.to_s
     host.presence
+  end
+
+  private
+
+  def normalize_blank_access_token
+    self.access_token = nil if access_token.blank?
   end
 end
