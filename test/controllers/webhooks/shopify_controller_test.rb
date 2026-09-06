@@ -87,7 +87,10 @@ class Webhooks::ShopifyControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, WebhookEvent.where(event_key: "id:wh-uninstall-1").count
   end
 
-  test "app_uninstalled marks shop uninstalled" do
+  test "app_uninstalled marks shop uninstalled and purges catalog" do
+    product = @shop.catalog_products.create!(external_id: "gid://shopify/Product/77", title: "Gone", status: "active")
+    product.catalog_variants.create!(external_id: "gid://shopify/ProductVariant/77", sku: "GONE")
+
     body = { "domain" => "acme.myshopify.com" }.to_json
     post "/webhooks/shopify/app_uninstalled",
          params: body,
@@ -97,6 +100,7 @@ class Webhooks::ShopifyControllerTest < ActionDispatch::IntegrationTest
     @shop.reload
     assert @shop.uninstalled_at.present?
     assert_nil @shop.access_token
+    assert_equal 0, @shop.catalog_products.count
   end
 
   private

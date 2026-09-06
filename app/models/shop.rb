@@ -18,8 +18,13 @@ class Shop < ApplicationRecord
     uninstalled_at.nil? && access_token.present?
   end
 
+  # Clears the offline token and purges platform-neutral catalog rows for this shop.
+  # Privacy: on uninstall we do not retain catalog_products / variants / inventory_levels.
   def mark_uninstalled!
-    update!(uninstalled_at: Time.current, access_token: nil)
+    transaction do
+      catalog_products.find_each(&:destroy!)
+      update!(uninstalled_at: Time.current, access_token: nil)
+    end
   end
 
   def self.normalize_domain(raw)

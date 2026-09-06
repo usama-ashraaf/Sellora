@@ -74,13 +74,41 @@ SELECT catalog_variant_id, location_external_id, available FROM catalog_inventor
 - Product and inventory webhook stubs enqueue that job after the existing `webhook_events` idempotency claim (duplicates skip enqueue).
 - Topics: `products_create`, `products_update`, `products_delete`, `inventory_levels_update`.
 
+### Coalesce / lock (S3)
+
+Full-catalog sync is **coalesced per shop** via a PostgreSQL advisory lock (`Shopify::CatalogSyncLock`):
+
+- Only one full sync runs for a given `shop_id` at a time.
+- Contending jobs **skip** (log `coalesce skip`) rather than run concurrently or wipe mid-flight.
+- Transient Admin API failures (`Shopify::AdminClient::TransientError`, timeouts, connection resets) use Active Job `retry_on` with polynomial backoff (5 attempts).
+
+### Fail-closed empty reconcile (S1)
+
+If a full sync sees **zero** products (or an unexpected empty page after products were already seen) while the shop already has local catalog rows, reconcile **aborts** with `Shopify::CatalogSync::EmptySeenError` and **does not** delete existing products/variants/levels. Prefer stale catalog over a wipe from an empty/glitched API response. A genuinely empty shop (zero remote + zero local) is a no-op.
+
+### Nested GraphQL pagination (S2)
+
+Product pages use small first-page sizes to stay under Shopify’s single-query cost limit (~1000):
+
+| Connection | Page size | Pagination |
+|------------|-----------|------------|
+| `products` | 10 | Cursor pages until `hasNextPage` is false |
+| `variants` | 50 | Nested `pageInfo`; remaining pages fetched via `product(id:)` |
+| `inventoryLevels` | 10 | Nested `pageInfo`; remaining pages fetched via `inventoryItem(id:)` |
+
+There is **no hard truncate**: nested connections are expanded to completion before upsert/reconcile.
+
+### Uninstall catalog policy (S4)
+
+On `app/uninstalled`, `Shop#mark_uninstalled!` clears the offline token **and purges** that shop’s `catalog_products` (cascading to variants + inventory levels). Catalog rows are **not** retained after uninstall. Re-install starts from an empty local catalog and a fresh sync.
+
 ## Code map
 
-- `Shopify::AdminClient` — GraphQL pagination (products → variants → inventory levels)
-- `Shopify::CatalogSync` — upsert + reconcile removed products/variants/levels
-- `Shopify::CatalogSyncJob` — background entrypoint
+- `Shopify::AdminClient` — GraphQL pagination (products → variants → inventory levels, nested to completion)
+- `Shopify::CatalogSync` — upsert + fail-closed reconcile
+- `Shopify::CatalogSyncLock` — per-shop advisory lock / coalesce
+- `Shopify::CatalogSyncJob` — background entrypoint + `retry_on` transients
 - `lib/tasks/sellora.rake` — smoke tasks above
-
 
 ## Catalog parity (Wave 1 dual-shop)
 
@@ -101,8 +129,6 @@ What it compares:
 | Shared SKU shape | Sample mismatches on `option_summary`, `variant_title`, `inventory_sum` (handles may differ by brand flavor) |
 
 Exit: prints `PARITY_OK` or aborts with `PARITY_DIFF`. Implementation: `Sellora::CatalogParity` + `lib/tasks/sellora.rake`.
-
-Shopify Admin GraphQL queries use small page sizes (`products` 10 / `variants` 50 / `inventoryLevels` 10) to stay under the single-query cost limit (1000).
 
 ## Deep shape dump (optional)
 

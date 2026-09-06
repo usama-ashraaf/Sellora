@@ -86,6 +86,48 @@ class Shopify::CatalogSyncTest < ActiveSupport::TestCase
     assert_equal 1, product.catalog_variants.count
   end
 
+  test "fail-closed: empty seen does not wipe existing catalog" do
+    pages_v1 = [ [ product_node(id: "gid://shopify/Product/1", title: "Keep Me") ] ]
+    stub_admin_pages(@shop, pages_v1) { Shopify::CatalogSync.call(@shop) }
+    assert_equal 1, @shop.catalog_products.count
+
+    empty_pages = [ [] ]
+    error = assert_raises(Shopify::CatalogSync::EmptySeenError) do
+      stub_admin_pages(@shop, empty_pages) { Shopify::CatalogSync.call(@shop) }
+    end
+    assert_match(/fail-closed/, error.message)
+
+    assert_equal 1, @shop.catalog_products.count
+    assert_equal "Keep Me", @shop.catalog_products.find_by!(external_id: "gid://shopify/Product/1").title
+  end
+
+  test "fail-closed: unexpected empty page after products aborts without reconcile wipe" do
+    pages_v1 = [ [ product_node(id: "gid://shopify/Product/1", title: "A"), product_node(id: "gid://shopify/Product/2", title: "B") ] ]
+    stub_admin_pages(@shop, pages_v1) { Shopify::CatalogSync.call(@shop) }
+    assert_equal 2, @shop.catalog_products.count
+
+    # First page has one product, second page is unexpectedly empty while more was implied by caller sequence.
+    glitched = [
+      [ product_node(id: "gid://shopify/Product/1", title: "A") ],
+      []
+    ]
+    assert_raises(Shopify::CatalogSync::EmptySeenError) do
+      stub_admin_pages(@shop, glitched) { Shopify::CatalogSync.call(@shop) }
+    end
+
+    # Product 2 must still exist — reconcile must not have run a partial wipe.
+    assert_equal 2, @shop.catalog_products.count
+    assert @shop.catalog_products.exists?(external_id: "gid://shopify/Product/2")
+  end
+
+  test "empty remote catalog on empty local shop is a no-op" do
+    stub_admin_pages(@shop, [ [] ]) do
+      result = Shopify::CatalogSync.call(@shop)
+      assert_equal 0, result[:products]
+    end
+    assert_equal 0, @shop.catalog_products.count
+  end
+
   test "dual-shop sync keeps same external ids isolated per shop for regression compare" do
     shared_shape = [
       [

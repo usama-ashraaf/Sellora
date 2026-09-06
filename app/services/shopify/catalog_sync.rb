@@ -5,6 +5,9 @@ module Shopify
   # Phase A: read_products, read_inventory, read_locations only — no writes.
   class CatalogSync
     Error = Class.new(StandardError)
+    # Raised when a full sync sees zero products but the shop already has catalog rows.
+    # Fail-closed: never wipe an existing catalog on an empty/unexpected zero-product response.
+    EmptySeenError = Class.new(Error)
 
     def self.call(shop)
       new(shop).call
@@ -13,6 +16,7 @@ module Shopify
     def initialize(shop)
       @shop = shop
       @seen_product_external_ids = []
+      @pages_seen = 0
     end
 
     def call
@@ -21,6 +25,16 @@ module Shopify
       @client = AdminClient.new(@shop)
 
       @client.each_product_page do |nodes|
+        @pages_seen += 1
+        # An empty first page with no subsequent pages is a legitimate empty catalog.
+        # An empty page after we already saw products would be unexpected; treat as hard error
+        # before reconcile so we never delete based on a truncated/glitched response.
+        if nodes.empty? && @seen_product_external_ids.any?
+          raise EmptySeenError,
+                "unexpected empty products page after seeing #{@seen_product_external_ids.size} " \
+                "products for shop #{@shop.shopify_domain} — aborting (fail-closed)"
+        end
+
         nodes.each { |node| upsert_product!(node) }
       end
 
@@ -112,11 +126,21 @@ module Shopify
     end
 
     def reconcile_removed_products!
-      stale = if @seen_product_external_ids.empty?
-        @shop.catalog_products
-      else
-        @shop.catalog_products.where.not(external_id: @seen_product_external_ids)
+      if @seen_product_external_ids.empty?
+        existing = @shop.catalog_products.count
+        if existing.positive?
+          Rails.logger.error(
+            "[catalog_sync] fail-closed empty reconcile shop=#{@shop.shopify_domain} " \
+            "shop_id=#{@shop.id} seen=0 existing=#{existing} pages=#{@pages_seen}"
+          )
+          raise EmptySeenError,
+                "empty catalog sync for shop #{@shop.shopify_domain}: saw 0 products but " \
+                "#{existing} exist locally — aborting reconcile (fail-closed)"
+        end
+        return
       end
+
+      stale = @shop.catalog_products.where.not(external_id: @seen_product_external_ids)
       stale.find_each(&:destroy!)
     end
   end
