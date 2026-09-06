@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Idempotent M2 foundation seeds.
+# Idempotent M2 foundation seeds (fictional demo account + clothing rules only).
 account = Accounts::EnsureDemoAccount.call
 rule_set = Audit::ClothingRulesSeed.call
 

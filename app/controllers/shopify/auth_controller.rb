@@ -81,7 +81,16 @@ module Shopify
       shop.access_token = token_payload["access_token"]
       shop.scope = token_payload["scope"].presence || ShopifyConfig.scopes
       shop.uninstalled_at = nil
+      ensure_account!(shop)
       shop.save!
+    end
+
+    # Assign a dedicated Account on first install / when account_id is nil.
+    # Never attach real OAuth shops to Sellora Demo. Preserve an existing account on re-install.
+    def ensure_account!(shop)
+      return if shop.account_id.present?
+
+      shop.account = Account.create!(name: "Store #{shop.shopify_domain}")
     end
 
     def reset_oauth_session

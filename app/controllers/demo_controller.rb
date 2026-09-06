@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
-# Open fictional in-app demo (M2). Not the marketing page.
-# Auth is intentionally session-free for this foundation slice — see docs/m2-foundation.md.
+# Fictional in-app demo (M2). Not the marketing page.
+# HTTP Basic gated via DEMO_HTTP_BASIC_USER / DEMO_HTTP_BASIC_PASSWORD — see docs/m2-foundation.md.
 class DemoController < ApplicationController
+  before_action :require_demo_basic_auth!
+
   def show
     @account = Accounts::EnsureDemoAccount.call
     @shops = Shop.for_account(@account).order(:shopify_domain)
@@ -18,6 +20,22 @@ class DemoController < ApplicationController
   end
 
   private
+
+  def require_demo_basic_auth!
+    expected_user = ENV["DEMO_HTTP_BASIC_USER"].to_s
+    expected_pass = ENV["DEMO_HTTP_BASIC_PASSWORD"].to_s
+
+    if expected_user.blank? || expected_pass.blank?
+      render plain: "Demo auth is not configured. Set DEMO_HTTP_BASIC_USER and DEMO_HTTP_BASIC_PASSWORD.",
+             status: :service_unavailable
+      return
+    end
+
+    authenticate_or_request_with_http_basic("Sellora Demo") do |username, password|
+      ActiveSupport::SecurityUtils.secure_compare(username, expected_user) &
+        ActiveSupport::SecurityUtils.secure_compare(password, expected_pass)
+    end
+  end
 
   def seed_sample_findings!
     shop = @shops.first

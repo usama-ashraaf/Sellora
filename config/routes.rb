@@ -2,7 +2,7 @@ Rails.application.routes.draw do
   root "marketing#show"
   resources :pilot_requests, only: :create
 
-  # M2 fictional in-app demo (not marketing). Open / session-free for foundation.
+  # M2 fictional in-app demo (not marketing). HTTP Basic gated (DEMO_HTTP_BASIC_*).
   get "demo", to: "demo#show", as: :demo
   get "app", to: "demo#show", as: :app_demo
 

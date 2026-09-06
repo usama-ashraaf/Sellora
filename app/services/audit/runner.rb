@@ -2,7 +2,7 @@
 
 module Audit
   # Stub runner: evaluates the active clothing rule set against a shop's catalog
-  # and emits AuditFinding rows. M2 foundation — heuristics are intentionally lean.
+  # and emits AuditFinding rows. Idempotent on re-run via natural-key upsert.
   class Runner
     ALPHA_ORDER = %w[XS S M L XL XXL XXXL].freeze
 
@@ -114,19 +114,21 @@ module Audit
       nil
     end
 
+    # Upsert on natural key (shop, rule, product, variant) so re-runs do not duplicate.
     def record_finding!(rule, product, variant, message:, evidence:, suggested_action:)
-      finding = ::AuditFinding.create!(
-        account: @account,
-        shop: @shop,
-        audit_rule: rule,
-        catalog_product: product,
-        catalog_variant: variant,
-        severity: rule.severity,
-        status: "open",
-        message: message,
-        evidence: evidence,
-        suggested_action: suggested_action
+      finding = ::AuditFinding.find_or_initialize_by(
+        shop_id: @shop.id,
+        audit_rule_id: rule.id,
+        catalog_product_id: product&.id,
+        catalog_variant_id: variant&.id
       )
+      finding.account = @account
+      finding.severity = rule.severity
+      finding.status = "open" if finding.new_record?
+      finding.message = message
+      finding.evidence = evidence
+      finding.suggested_action = suggested_action
+      finding.save!
       @findings << finding
       finding
     end

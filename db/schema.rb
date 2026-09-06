@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_06_173000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_06_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -55,6 +55,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_06_173000) do
     t.index ["audit_rule_id"], name: "index_audit_findings_on_audit_rule_id"
     t.index ["catalog_product_id"], name: "index_audit_findings_on_catalog_product_id"
     t.index ["catalog_variant_id"], name: "index_audit_findings_on_catalog_variant_id"
+    t.index ["shop_id", "audit_rule_id", "catalog_product_id", "catalog_variant_id"], name: "index_audit_findings_on_natural_key", unique: true, nulls_not_distinct: true
     t.index ["shop_id", "audit_rule_id"], name: "index_audit_findings_on_shop_id_and_audit_rule_id"
     t.index ["shop_id"], name: "index_audit_findings_on_shop_id"
   end

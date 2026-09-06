@@ -14,6 +14,9 @@ class AuditFinding < ApplicationRecord
   validates :status, presence: true, inclusion: { in: STATUSES }
   validates :message, presence: true
 
+  # Idempotency: unique index index_audit_findings_on_natural_key
+  # (shop_id, audit_rule_id, catalog_product_id, catalog_variant_id) NULLS NOT DISTINCT.
+
   scope :open_findings, -> { where(status: "open") }
   scope :for_account, ->(account) { where(account_id: account.id) }
   scope :for_shop, ->(shop) { where(shop_id: shop.id) }

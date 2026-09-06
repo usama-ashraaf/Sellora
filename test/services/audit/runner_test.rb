@@ -53,4 +53,20 @@ class Audit::RunnerTest < ActiveSupport::TestCase
     anomaly = findings.find { |f| f.audit_rule.rule_key == "compare_at_anomaly" }
     assert anomaly, "expected compare_at_anomaly finding"
   end
+  test "does not duplicate findings on re-run" do
+    product = @shop.catalog_products.create!(external_id: "p-dedupe", title: "Gap Tee", status: "active")
+    %w[S L XL].each_with_index do |size, i|
+      product.catalog_variants.create!(external_id: "vd#{i}", title: size, option_summary: size, sku: "SF-GAP-#{size}")
+    end
+
+    first = Audit::Runner.call(shop: @shop, rule_set: @rule_set)
+    assert first.any? { |f| f.audit_rule.rule_key == "size_gap" }
+    count_after_first = AuditFinding.for_shop(@shop).count
+    assert count_after_first.positive?
+
+    second = Audit::Runner.call(shop: @shop, rule_set: @rule_set)
+    assert second.any? { |f| f.audit_rule.rule_key == "size_gap" }
+    assert_equal count_after_first, AuditFinding.for_shop(@shop).count
+  end
+
 end
