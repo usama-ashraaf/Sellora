@@ -32,13 +32,17 @@ Callback path is always `/auth/shopify/callback` — required for OAuth to compl
 
 ### Webhook paths (same tunnel host)
 
-| Topic | Endpoint |
-|-------|----------|
-| `products/create` | `POST https://<tunnel-host>/webhooks/shopify/products_create` |
-| `products/update` | `POST https://<tunnel-host>/webhooks/shopify/products_update` |
-| `products/delete` | `POST https://<tunnel-host>/webhooks/shopify/products_delete` |
-| `inventory_levels/update` | `POST https://<tunnel-host>/webhooks/shopify/inventory_levels_update` |
-| `app/uninstalled` | `POST https://<tunnel-host>/webhooks/shopify/app_uninstalled` |
+Phase A topics only (registered via `Shopify::WebhookRegistrar` / `bin/rails sellora:register_webhooks_all`):
+
+| GraphQL topic | Endpoint |
+|---------------|----------|
+| `PRODUCTS_CREATE` | `POST https://<tunnel-host>/webhooks/shopify/products_create` |
+| `PRODUCTS_UPDATE` | `POST https://<tunnel-host>/webhooks/shopify/products_update` |
+| `PRODUCTS_DELETE` | `POST https://<tunnel-host>/webhooks/shopify/products_delete` |
+| `INVENTORY_LEVELS_UPDATE` | `POST https://<tunnel-host>/webhooks/shopify/inventory_levels_update` |
+| `APP_UNINSTALLED` | `POST https://<tunnel-host>/webhooks/shopify/app_uninstalled` |
+
+After OAuth or when `SHOPIFY_APP_URL` changes, run `bin/rails sellora:register_webhooks_all` (source `.env` first). Phase B orders/pixel topics are **not** registered yet.
 
 Full install steps: `docs/shopify-install.md`.
 
@@ -51,6 +55,7 @@ Full install steps: `docs/shopify-install.md`.
 - [x] Sellora app **installed** on Sapphire-like
 - [ ] Catalog fixtures fully enriched (Dev Store Agent)
 - [x] Reviewer hardens (token encryption, OAuth HMAC binding, scope assert, webhook ledger)
+- [x] Phase A webhook GraphQL registration (`sellora:register_webhooks` / `_all`)
 
 ## Usama test runbook (smoke)
 

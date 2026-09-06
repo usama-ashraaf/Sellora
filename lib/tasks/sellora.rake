@@ -60,4 +60,36 @@ namespace :sellora do
     puts result.parity? ? "PARITY_OK" : "PARITY_DIFF"
     abort "catalog parity failed" unless result.parity?
   end
+
+  desc "Register Phase A Shopify webhooks for one shop (e.g. sellora:register_webhooks[sellora-test-outfitters-like.myshopify.com])"
+  task :register_webhooks, [ :shop_domain ] => :environment do |_t, args|
+    domain = Shop.normalize_domain(args[:shop_domain])
+    abort "Usage: bin/rails sellora:register_webhooks[shop-domain.myshopify.com]" if domain.blank?
+
+    shop = Shop.find_by(shopify_domain: domain)
+    abort "No shop row for #{domain}" if shop.nil?
+    abort "Shop #{domain} is not installed (missing token or uninstalled)" unless shop.installed?
+
+    result = Shopify::WebhookRegistrar.call(shop)
+    puts "Registered webhooks shop_id=#{result[:shop_id]} domain=#{result[:shopify_domain]}"
+    result[:subscriptions].each do |sub|
+      puts "  #{sub[:topic]} status=#{sub[:status]} uri=#{sub[:uri]} id=#{sub[:id]}"
+    end
+  end
+
+  desc "Register Phase A Shopify webhooks for every installed shop"
+  task register_webhooks_all: :environment do
+    shops = Shop.installed.to_a
+    abort "No installed shops" if shops.empty?
+
+    shops.each do |shop|
+      result = Shopify::WebhookRegistrar.call(shop)
+      puts "Registered webhooks shop_id=#{result[:shop_id]} domain=#{result[:shopify_domain]}"
+      result[:subscriptions].each do |sub|
+        puts "  #{sub[:topic]} status=#{sub[:status]} uri=#{sub[:uri]} id=#{sub[:id]}"
+      end
+    rescue Shopify::AdminClient::Error, Shopify::WebhookRegistrar::Error => e
+      warn "FAILED #{shop.shopify_domain}: #{e.message}"
+    end
+  end
 end

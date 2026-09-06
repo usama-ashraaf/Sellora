@@ -130,6 +130,7 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     fake_token = { "access_token" => "shpat_test_offline", "scope" => "read_products,read_inventory,read_locations" }
     original = Shopify::Oauth.method(:exchange_code)
     Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
+    registrar_calls = stub_webhook_registrar!
 
     begin
       get shopify_callback_path, params: signed_callback_params(
@@ -139,6 +140,7 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
       )
     ensure
       Shopify::Oauth.define_singleton_method(:exchange_code, original)
+      restore_webhook_registrar!
     end
 
     assert_response :success
@@ -149,6 +151,8 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     assert shop.account_id.present?, "OAuth must set account_id"
     assert_equal "Store acme.myshopify.com", shop.account.name
     refute_equal Account::DEMO_NAME, shop.account.name
+    assert_equal 1, registrar_calls.size
+    assert_equal shop.id, registrar_calls.first.id
   end
 
   test "callback re-install preserves existing account_id" do
@@ -166,6 +170,7 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     fake_token = { "access_token" => "shpat_reinstall", "scope" => "read_products,read_inventory,read_locations" }
     original = Shopify::Oauth.method(:exchange_code)
     Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
+    stub_webhook_registrar!
 
     begin
       get shopify_callback_path, params: signed_callback_params(
@@ -175,6 +180,7 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
       )
     ensure
       Shopify::Oauth.define_singleton_method(:exchange_code, original)
+      restore_webhook_registrar!
     end
 
     assert_response :success
@@ -183,7 +189,52 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     assert_equal existing.id, shop.account_id
   end
 
+  test "callback still succeeds when webhook registration fails" do
+    get shopify_install_path, params: { shop: "acme.myshopify.com" }
+    state = session[:shopify_oauth_state]
+
+    fake_token = { "access_token" => "shpat_test_offline", "scope" => "read_products,read_inventory,read_locations" }
+    original = Shopify::Oauth.method(:exchange_code)
+    Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
+
+    original_reg = Shopify::WebhookRegistrar.method(:call)
+    Shopify::WebhookRegistrar.define_singleton_method(:call) do |_shop|
+      raise Shopify::WebhookRegistrar::Error, "boom"
+    end
+
+    begin
+      get shopify_callback_path, params: signed_callback_params(
+        shop: "acme.myshopify.com",
+        code: "auth-code",
+        state: state
+      )
+    ensure
+      Shopify::Oauth.define_singleton_method(:exchange_code, original)
+      Shopify::WebhookRegistrar.define_singleton_method(:call, original_reg)
+    end
+
+    assert_response :success
+    assert Shop.find_by!(shopify_domain: "acme.myshopify.com").installed?
+  end
+
   private
+
+  def stub_webhook_registrar!
+    @webhook_registrar_original = Shopify::WebhookRegistrar.method(:call)
+    calls = []
+    Shopify::WebhookRegistrar.define_singleton_method(:call) do |shop|
+      calls << shop
+      { shop_id: shop.id, shopify_domain: shop.shopify_domain, subscriptions: [] }
+    end
+    calls
+  end
+
+  def restore_webhook_registrar!
+    return unless @webhook_registrar_original
+
+    Shopify::WebhookRegistrar.define_singleton_method(:call, @webhook_registrar_original)
+    @webhook_registrar_original = nil
+  end
 
   def signed_callback_params(shop:, code:, state:)
     params = {

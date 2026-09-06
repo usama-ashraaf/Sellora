@@ -45,17 +45,29 @@ Shopify Admin loads the Partner **App URL** inside an iframe. That URL must serv
 
 Enable **Phase A** scopes only (see `docs/shopify-scopes.md`). Do not enable Phase B/C scopes yet.
 
-### Webhook paths
+### Webhook paths + GraphQL registration (Phase A)
 
-Suggested webhook subscriptions (point at the tunnel host):
+Endpoints (REST topic → Rails path). Callback base is `SHOPIFY_APP_URL` (public HTTPS tunnel):
 
-| Topic | Endpoint |
-|-------|----------|
-| `products/create` | `POST https://<tunnel-host>/webhooks/shopify/products_create` |
-| `products/update` | `POST https://<tunnel-host>/webhooks/shopify/products_update` |
-| `products/delete` | `POST https://<tunnel-host>/webhooks/shopify/products_delete` |
-| `inventory_levels/update` | `POST https://<tunnel-host>/webhooks/shopify/inventory_levels_update` |
-| `app/uninstalled` | `POST https://<tunnel-host>/webhooks/shopify/app_uninstalled` |
+| GraphQL topic | REST topic | Endpoint |
+|---------------|------------|----------|
+| `PRODUCTS_CREATE` | `products/create` | `POST https://<tunnel-host>/webhooks/shopify/products_create` |
+| `PRODUCTS_UPDATE` | `products/update` | `POST https://<tunnel-host>/webhooks/shopify/products_update` |
+| `PRODUCTS_DELETE` | `products/delete` | `POST https://<tunnel-host>/webhooks/shopify/products_delete` |
+| `INVENTORY_LEVELS_UPDATE` | `inventory_levels/update` | `POST https://<tunnel-host>/webhooks/shopify/inventory_levels_update` |
+| `APP_UNINSTALLED` | `app/uninstalled` | `POST https://<tunnel-host>/webhooks/shopify/app_uninstalled` |
+
+**Do not add Phase B** (orders / pixel) topics here.
+
+Registration is automatic after a successful OAuth shop persist (`Shopify::WebhookRegistrar`), and can be re-run:
+
+```sh
+# load .env into the shell first (Rails does not auto-load it)
+bin/rails "sellora:register_webhooks[sellora-test-outfitters-like.myshopify.com]"
+bin/rails sellora:register_webhooks_all
+```
+
+The registrar is **idempotent**: lists existing Admin GraphQL `webhookSubscriptions`, creates missing Phase A topics, and updates URI when `SHOPIFY_APP_URL` changed (e.g. new Cloudflare tunnel).
 
 ### Usama testing — live Wave 1 stores
 
@@ -128,3 +140,18 @@ bin/rails sellora:sync_catalog_all
 ```
 
 Details, tables, and Wave 1 smoke steps: **`docs/catalog-sync.md`**.
+
+
+## Webhook registration (Phase A)
+
+After OAuth (or any time the tunnel host changes):
+
+```sh
+bin/rails sellora:register_webhooks_all
+```
+
+### E2E smoke (Wave 1)
+
+1. Ensure Rails is reachable at `SHOPIFY_APP_URL` and `register_webhooks_all` reported `:created` / `:already_registered` for all five topics on both shops.
+2. Trigger a small product update in Admin (or Admin API) on one Wave 1 store.
+3. Confirm a `webhook_events` row for `products/update` (or matching topic) and/or a log line `[shopify webhook] catalog sync enqueued`.

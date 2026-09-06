@@ -83,6 +83,14 @@ module Shopify
       shop.uninstalled_at = nil
       ensure_account!(shop)
       shop.save!
+      register_webhooks_best_effort!(shop)
+    end
+
+    # Phase A webhook topics — best-effort so OAuth install still succeeds if GraphQL fails.
+    def register_webhooks_best_effort!(shop)
+      ::Shopify::WebhookRegistrar.call(shop)
+    rescue ::Shopify::AdminClient::Error, ::Shopify::WebhookRegistrar::Error => e
+      Rails.logger.warn("[shopify oauth] webhook registration failed shop=#{shop.shopify_domain}: #{e.class}: #{e.message}")
     end
 
     # Assign a dedicated Account on first install / when account_id is nil.

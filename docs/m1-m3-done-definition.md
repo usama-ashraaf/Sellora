@@ -27,7 +27,7 @@ See also: [m2-foundation.md](./m2-foundation.md), [activity-events.md](./activit
 - [x] Catalog sync + hardens + parity task
 - [x] Webhook HMAC + idempotency stubs
 - [ ] Embedded app home working in Shopify admin (**needs public HTTPS App URL**)
-- [ ] Webhooks registered & verified end-to-end against Wave 1
+- [x] Webhooks registered via GraphQL (`WebhookRegistrar` + rake); E2E verify against Wave 1 when tunnel live
 - [ ] Supported Web Pixel events (consent-aware)
 - [ ] Separate order records (Phase B `read_orders` when implementing this slice)
 - [ ] Uninstall/privacy handling complete (token+catalog purge done; document retention)
