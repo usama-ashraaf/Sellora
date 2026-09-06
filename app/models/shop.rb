@@ -6,6 +6,8 @@ class Shop < ApplicationRecord
   # Offline Admin API token — encrypted at rest via Active Record encryption.
   encrypts :access_token
 
+  has_many :catalog_products, dependent: :destroy
+
   validates :shopify_domain, presence: true, uniqueness: true, format: { with: DOMAIN_FORMAT }
 
   before_validation :normalize_blank_access_token

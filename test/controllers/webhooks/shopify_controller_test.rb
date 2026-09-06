@@ -5,6 +5,8 @@ require "base64"
 require "openssl"
 
 class Webhooks::ShopifyControllerTest < ActionDispatch::IntegrationTest
+  include ActiveJob::TestHelper
+
   setup do
     @secret = "test-shopify-secret"
     ENV["SHOPIFY_API_SECRET"] = @secret
@@ -32,11 +34,38 @@ class Webhooks::ShopifyControllerTest < ActionDispatch::IntegrationTest
 
   test "accepts products_create with valid hmac and records ledger" do
     body = { "id" => 99, "title" => "Tee" }.to_json
-    post "/webhooks/shopify/products_create",
-         params: body,
-         headers: webhook_headers(body, webhook_id: "wh-1")
+    assert_enqueued_with(job: Shopify::CatalogSyncJob, args: [ @shop.id ]) do
+      post "/webhooks/shopify/products_create",
+           params: body,
+           headers: webhook_headers(body, webhook_id: "wh-1")
+    end
     assert_response :ok
     assert_equal 1, WebhookEvent.where(topic: "products_create", shopify_domain: "acme.myshopify.com").count
+  end
+
+  test "inventory_levels_update enqueues catalog sync" do
+    body = { "inventory_item_id" => 1, "available" => 4 }.to_json
+    assert_enqueued_with(job: Shopify::CatalogSyncJob, args: [ @shop.id ]) do
+      post "/webhooks/shopify/inventory_levels_update",
+           params: body,
+           headers: webhook_headers(body, webhook_id: "wh-inv-1")
+    end
+    assert_response :ok
+  end
+
+  test "duplicate webhook id skips enqueue of catalog sync" do
+    body = { "id" => 42 }.to_json
+    headers = webhook_headers(body, webhook_id: "wh-dup-product")
+
+    assert_enqueued_jobs 1, only: Shopify::CatalogSyncJob do
+      post "/webhooks/shopify/products_update", params: body, headers: headers
+      assert_response :ok
+    end
+
+    assert_no_enqueued_jobs only: Shopify::CatalogSyncJob do
+      post "/webhooks/shopify/products_update", params: body, headers: headers
+      assert_response :ok
+    end
   end
 
   test "duplicate webhook id is acknowledged without reprocessing uninstall" do

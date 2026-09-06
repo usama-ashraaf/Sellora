@@ -85,7 +85,7 @@ Rails does not load `.env` automatically in this app; export variables in your s
 - `support_unencrypted_data` is **temporary**: it lets pre-encryption plaintext tokens remain readable until each row is re-saved (which re-encrypts). **Follow-up:** once every `shops.access_token` is known encrypted, set `support_unencrypted_data` to `false` in `config/initializers/active_record_encryption.rb` and drop the plaintext fallback.
 - Webhooks verify `X-Shopify-Hmac-Sha256` and record an idempotency ledger (`webhook_events`) keyed by `X-Shopify-Webhook-Id` (or a body/HMAC fingerprint fallback). Duplicates are acknowledged with `200` and skip business logic.
 - `app/uninstalled` clears the stored offline token and sets `uninstalled_at`.
-- Product/inventory webhook handlers are stubs in Phase A (acknowledge + log topic/shop only).
+- Product/inventory webhooks enqueue `Shopify::CatalogSyncJob` after the idempotency ledger claim (see `docs/catalog-sync.md`).
 
 ## Rate limiting (ops)
 
@@ -95,3 +95,15 @@ Shopify retries webhooks aggressively; the ledger prevents duplicate side effect
 - `POST /webhooks/shopify/*` — allow Shopify’s retry bursts but cap anonymous abuse
 
 A Rack-level throttle can be added later (e.g. `rack-attack`) if edge limits are unavailable.
+
+
+## Catalog sync (Phase A)
+
+After install, pull products + inventory into platform-neutral tables:
+
+```sh
+bin/rails "sellora:sync_catalog[sellora-test-outfitters-like.myshopify.com]"
+bin/rails sellora:sync_catalog_all
+```
+
+Details, tables, and Wave 1 smoke steps: **`docs/catalog-sync.md`**.

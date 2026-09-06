@@ -26,9 +26,9 @@ module Webhooks
 
       case topic
       when "products_create", "products_update", "products_delete"
-        handle_products_stub
+        enqueue_catalog_sync!("products")
       when "inventory_levels_update"
-        handle_inventory_stub
+        enqueue_catalog_sync!("inventory")
       when "app_uninstalled"
         handle_app_uninstalled
       end
@@ -69,13 +69,16 @@ module Webhooks
       )
     end
 
-    def handle_products_stub
-      # Phase A stub: acknowledge only. Catalog sync lands in a later slice.
-      Rails.logger.info("[shopify webhook] products topic=#{params[:topic]} shop=#{shop_domain}")
-    end
+    def enqueue_catalog_sync!(reason)
+      domain = Shop.normalize_domain(shop_domain)
+      shop = Shop.find_by(shopify_domain: domain) if domain.present?
+      unless shop&.installed?
+        Rails.logger.info("[shopify webhook] catalog sync skipped (shop not installed) reason=#{reason} shop=#{shop_domain}")
+        return
+      end
 
-    def handle_inventory_stub
-      Rails.logger.info("[shopify webhook] inventory_levels/update shop=#{shop_domain}")
+      Shopify::CatalogSyncJob.perform_later(shop.id)
+      Rails.logger.info("[shopify webhook] catalog sync enqueued reason=#{reason} shop=#{shop.shopify_domain} shop_id=#{shop.id}")
     end
 
     def handle_app_uninstalled

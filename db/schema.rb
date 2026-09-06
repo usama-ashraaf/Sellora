@@ -10,9 +10,48 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_06_140001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_06_160000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "catalog_inventory_levels", force: :cascade do |t|
+    t.integer "available", default: 0, null: false
+    t.bigint "catalog_variant_id", null: false
+    t.datetime "created_at", null: false
+    t.string "location_external_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["catalog_variant_id", "location_external_id"], name: "index_catalog_inventory_on_variant_and_location", unique: true
+    t.index ["catalog_variant_id"], name: "index_catalog_inventory_levels_on_catalog_variant_id"
+  end
+
+  create_table "catalog_products", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "external_id", null: false
+    t.string "handle"
+    t.jsonb "raw_attrs", default: {}, null: false
+    t.bigint "shop_id", null: false
+    t.string "status", default: "active", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["shop_id", "external_id"], name: "index_catalog_products_on_shop_id_and_external_id", unique: true
+    t.index ["shop_id", "handle"], name: "index_catalog_products_on_shop_id_and_handle"
+    t.index ["shop_id"], name: "index_catalog_products_on_shop_id"
+  end
+
+  create_table "catalog_variants", force: :cascade do |t|
+    t.string "barcode"
+    t.bigint "catalog_product_id", null: false
+    t.datetime "created_at", null: false
+    t.string "external_id", null: false
+    t.string "inventory_item_external_id"
+    t.string "option_summary"
+    t.string "sku"
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.index ["catalog_product_id", "external_id"], name: "index_catalog_variants_on_product_and_external_id", unique: true
+    t.index ["catalog_product_id"], name: "index_catalog_variants_on_catalog_product_id"
+    t.index ["sku"], name: "index_catalog_variants_on_sku"
+  end
 
   create_table "pilot_requests", force: :cascade do |t|
     t.datetime "created_at", null: false
@@ -45,4 +84,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_06_140001) do
     t.index ["event_key"], name: "index_webhook_events_on_event_key", unique: true
     t.index ["shopify_domain", "topic"], name: "index_webhook_events_on_shopify_domain_and_topic"
   end
+
+  add_foreign_key "catalog_inventory_levels", "catalog_variants"
+  add_foreign_key "catalog_products", "shops"
+  add_foreign_key "catalog_variants", "catalog_products"
 end
