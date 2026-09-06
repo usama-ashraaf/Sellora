@@ -98,6 +98,25 @@ class Shopify::WebPixelRegistrarTest < ActiveSupport::TestCase
     assert_match(/INVALID_SETTINGS/, error.message)
   end
 
+  test "treats missing web pixel GraphQL error as create path" do
+    desired = Shopify::WebPixelRegistrar.settings_for(@shop)
+    responses = [
+      :missing_pixel_error,
+      {
+        "webPixelCreate" => {
+          "webPixel" => { "id" => "gid://shopify/WebPixel/3", "settings" => desired.to_json },
+          "userErrors" => []
+        }
+      }
+    ]
+
+    stub_graphql_sequence(responses) do
+      result = Shopify::WebPixelRegistrar.call(@shop)
+      assert_equal :created, result[:status]
+      assert_equal "gid://shopify/WebPixel/3", result[:id]
+    end
+  end
+
   test "settings_for falls back to shop id when account_id nil" do
     orphan = Shop.create!(
       shopify_domain: "orphan.myshopify.com",
@@ -121,7 +140,12 @@ class Shopify::WebPixelRegistrarTest < ActiveSupport::TestCase
     client.define_singleton_method(:graphql) do |_query, _variables = {}|
       raise "unexpected GraphQL call (queue empty)" if queue.empty?
 
-      queue.shift
+      next_payload = queue.shift
+      if next_payload == :missing_pixel_error
+        raise Shopify::AdminClient::Error, "Admin API GraphQL errors: No web pixel was found for this app."
+      end
+
+      next_payload
     end
 
     Shopify::AdminClient.define_singleton_method(:new) do |shop|

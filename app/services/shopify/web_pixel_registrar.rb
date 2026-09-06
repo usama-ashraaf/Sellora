@@ -107,11 +107,16 @@ module Shopify
     def fetch_web_pixel
       payload = @client.graphql(LIST_QUERY)
       payload["webPixel"]
+    rescue AdminClient::Error => e
+      # Empty install: Shopify returns a top-level GraphQL error instead of null.
+      raise unless e.message.include?("No web pixel was found for this app")
+
+      nil
     end
 
     def create_web_pixel!(settings)
       payload = @client.graphql(CREATE_MUTATION, {
-        "webPixel" => { "settings" => settings }
+        "webPixel" => { "settings" => settings.to_json }
       })
       mutation = payload.fetch("webPixelCreate")
       user_errors = Array(mutation["userErrors"])
@@ -139,7 +144,7 @@ module Shopify
     def update_web_pixel!(id, settings)
       payload = @client.graphql(UPDATE_MUTATION, {
         "id" => id,
-        "webPixel" => { "settings" => settings }
+        "webPixel" => { "settings" => settings.to_json }
       })
       mutation = payload.fetch("webPixelUpdate")
       user_errors = Array(mutation["userErrors"])
