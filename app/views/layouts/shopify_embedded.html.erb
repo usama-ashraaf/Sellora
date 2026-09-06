@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Sellora — Shopify</title>
+    <%# Shopify App Bridge (CDN) — required for embedded admin apps without shopify_app gem %>
+    <% if ShopifyConfig.client_id.present? %>
+      <meta name="shopify-api-key" content="<%= ShopifyConfig.client_id %>">
+    <% end %>
+    <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+    <style>
+      :root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+      body { margin: 0; padding: 1.5rem; line-height: 1.5; background: #f6f6f7; color: #202223; }
+      main { max-width: 42rem; margin: 0 auto; background: #fff; border: 1px solid #e1e3e5; border-radius: 12px; padding: 1.25rem 1.5rem; }
+      h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+      .muted { color: #6d7175; font-size: 0.95rem; }
+      .status { margin: 1rem 0; padding: 0.75rem 1rem; border-radius: 8px; background: #f1f2f3; }
+      .ok { background: #e3f1df; }
+      .warn { background: #fff5ea; }
+      ul { padding-left: 1.25rem; }
+      a { color: #2c6ecb; }
+      code { font-size: 0.9em; background: #f1f2f3; padding: 0.1em 0.35em; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <%= yield %>
+  </body>
+</html>

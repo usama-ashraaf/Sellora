@@ -18,12 +18,30 @@ In Partners → Apps → Sellora → App setup (required):
 
 | Setting | Value |
 |--------|--------|
-| **App URL** | Prefer `http://127.0.0.1:3000/` for local OAuth; or `https://<tunnel-host>/` when using a tunnel |
-| **Allowed redirection URL(s)** | Prefer `http://127.0.0.1:3000/auth/shopify/callback` for local installs; also add `https://<tunnel-host>/auth/shopify/callback` when tunneling |
+| **App URL** | `https://<public-host>/shopify` — must be **public HTTPS** (from `SHOPIFY_APP_URL` + `/shopify`). Never use `http://127.0.0.1:3000/…` as Partner App URL for admin embed. |
+| **Allowed redirection URL(s)** | `https://<public-host>/auth/shopify/callback` (and optionally `http://127.0.0.1:3000/auth/shopify/callback` for local-only OAuth smoke) |
+
+`SHOPIFY_APP_URL` is the public base (no trailing slash), e.g. `https://<tunnel-host>`. Partner **App URL** = `{SHOPIFY_APP_URL}/shopify`. Callback = `{SHOPIFY_APP_URL}/auth/shopify/callback`.
 
 The Allowed redirection URL **must** end with `/auth/shopify/callback` (Rails route `shopify_callback`). A mismatch here is a common cause of OAuth token-exchange failures.
 
-**Important:** Partner **Custom distribution** install marks the app installed in Shopify Admin but does **not** create a Rails `shops` row with an offline token. You must complete OAuth through this app (`GET /shopify/install?shop=…` → callback) so `Shop` persists an encrypted `access_token`. Localhost callback is preferred when already allow-listed on the Partner app.
+### Embedded app home (ST-03)
+
+Shopify Admin loads the Partner **App URL** inside an iframe. That URL must serve the Rails embed home (`GET /shopify`), which:
+
+- Includes Shopify App Bridge via CDN
+- Omits `X-Frame-Options: SAMEORIGIN` (Rails default blanks the iframe) and sets CSP `frame-ancestors https://admin.shopify.com https://*.myshopify.com`
+- Shows shop / Phase A scopes / install health (not a blank page)
+
+**Localhost App URL will always show a broken/blank embed in Admin** — Admin cannot reach `127.0.0.1` from Shopify’s iframe. A public HTTPS tunnel (or deployed host) is required for embed smoke. PM owns the tunnel; set Partner App URL once the public host is known.
+
+**How Usama / QA open the embedded app**
+
+1. Ensure Rails is reachable at `SHOPIFY_APP_URL` over HTTPS and Partner **App URL** is `https://<public-host>/shopify`.
+2. Open Admin → Apps → **Sellora** (e.g. https://admin.shopify.com/store/sellora-test-outfitters-like → Apps → Sellora).
+3. You should see the Sellora status page (shop domain if passed, Phase A scopes, install links) — not a blank iframe.
+
+**Important:** Partner **Custom distribution** install marks the app installed in Shopify Admin but does **not** create a Rails `shops` row with an offline token. You must complete OAuth through this app (`GET /shopify/install?shop=…` → callback) so `Shop` persists an encrypted `access_token`.
 
 Enable **Phase A** scopes only (see `docs/shopify-scopes.md`). Do not enable Phase B/C scopes yet.
 
@@ -73,6 +91,7 @@ Rails does not load `.env` automatically in this app; export variables in your s
 ## Routes (marketing unchanged)
 
 - Marketing: `/`, `POST /pilot_requests`
+- **Embedded app home (Partner App URL):** `GET /shopify` (alias `GET /shopify/app`)
 - OAuth install: `GET /shopify/install`
 - OAuth callback: `GET /auth/shopify/callback`
 - Webhooks: `POST /webhooks/shopify/*` (HMAC required)

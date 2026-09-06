@@ -17,14 +17,18 @@ Fictional Shopify **development stores** that mimic Pakistani clothing ecommerce
 
 ### Partner App URL + Allowed redirection URL
 
-In Partners → Apps → Sellora → App setup (tunnel host = your public HTTPS base, e.g. ngrok):
+In Partners → Apps → Sellora → App setup. Base host comes from env `SHOPIFY_APP_URL` (public HTTPS, no trailing slash). PM stands up the tunnel — set Partner URLs when that host is ready.
 
 | Setting | Value |
 |--------|--------|
-| **App URL** | `https://<tunnel-host>/` (or `https://<tunnel-host>/shopify/install`) |
-| **Allowed redirection URL(s)** | `https://<tunnel-host>/auth/shopify/callback` |
+| **App URL** | `https://<public-host>/shopify` (= `{SHOPIFY_APP_URL}/shopify`) — **required** for Admin embed |
+| **Allowed redirection URL(s)** | `https://<public-host>/auth/shopify/callback` |
 
 Callback path is always `/auth/shopify/callback` — required for OAuth to complete.
+
+**Do not** set Partner App URL to `http://127.0.0.1:3000/` or the marketing root `/`. Localhost App URLs always blank/break the Admin iframe; marketing root lacks App Bridge + frame-ancestors. Use a public HTTPS host ending in `/shopify`.
+
+**QA open path:** Admin → Apps → Sellora after App URL points at the running HTTPS host’s `/shopify`. Expect the Sellora status page (not blank).
 
 ### Webhook paths (same tunnel host)
 
@@ -68,7 +72,7 @@ Allowed redirection URL must be `https://<tunnel-host>/auth/shopify/callback`.
 ### 2. Confirm app install
 1. In each admin: **Settings → Apps and sales channels** (or **Apps**).
 2. Confirm **Sellora** appears under **Installed apps**.
-3. Open Sellora — you should land on the app (embedded or install confirmation). If the Rails app isn’t running locally with OAuth env, the app home may error; install presence in Installed apps is the P0 check.
+3. Open Sellora — with Partner **App URL** = `https://<public-host>/shopify` and Rails reachable there, you should see the embedded Sellora status page (shop / Phase A scopes / install links). A localhost App URL will show a **blank** iframe. If the public host is not up yet, install presence under Installed apps is still the presence check.
 
 ### 3. Confirm Phase A scopes (optional)
 Partner app Dev Dashboard → Sellora → version scopes should list only:

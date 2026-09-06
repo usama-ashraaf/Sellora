@@ -1,0 +1,56 @@
+<main>
+  <h1>Sellora</h1>
+  <p class="muted">Shopify embedded app home (Phase A)</p>
+
+  <% if @shop_domain.present? && @shop_domain.match?(Shop::DOMAIN_FORMAT) %>
+    <div class="status ok">
+      <strong>Shop:</strong> <code><%= @shop_domain %></code>
+      <% if @shop_record&.installed? %>
+        — installed in Sellora (offline token present)
+      <% elsif @shop_record %>
+        — known but marked uninstalled / missing token
+      <% else %>
+        — not yet recorded via OAuth in this Rails app
+      <% end %>
+    </div>
+  <% elsif @embedded_params_present %>
+    <div class="status warn">
+      Opened with Shopify params, but <code>shop</code> is missing or invalid.
+      Re-open from Admin → Apps → Sellora, or install via
+      <code>/shopify/install?shop=your-store.myshopify.com</code>.
+    </div>
+  <% else %>
+    <div class="status warn">
+      No Shopify embed params (<code>shop</code> / <code>host</code> / <code>id_token</code>).
+      This page is meant to load inside Shopify Admin after Partner
+      <strong>App URL</strong> points at a public HTTPS host ending in <code>/shopify</code>.
+      Localhost App URLs always show a blank/broken embed in admin — use a tunnel.
+    </div>
+  <% end %>
+
+  <h2 style="font-size:1.05rem;margin-top:1.25rem;">Phase A scopes</h2>
+  <ul>
+    <% @phase_a_scopes.each do |scope| %>
+      <li><code><%= scope %></code></li>
+    <% end %>
+  </ul>
+  <p class="muted">Phase B scopes are not enabled.</p>
+
+  <h2 style="font-size:1.05rem;margin-top:1.25rem;">Install &amp; sync</h2>
+  <ul>
+    <li>
+      <% if @shop_domain.present? && @shop_domain.match?(Shop::DOMAIN_FORMAT) %>
+        <%= link_to "Start / repair OAuth install", shopify_install_path(shop: @shop_domain) %>
+      <% else %>
+        Install: <code>GET /shopify/install?shop=&lt;store&gt;.myshopify.com</code>
+      <% end %>
+    </li>
+    <li>Callback (Allowed redirection URL): <code>/auth/shopify/callback</code></li>
+    <li>Catalog sync docs: see <code>docs/catalog-sync.md</code> / <code>docs/shopify-install.md</code></li>
+    <li>Configured <code>SHOPIFY_APP_URL</code>: <code><%= @app_url.presence || "(unset)" %></code></li>
+  </ul>
+
+  <% if @host.present? %>
+    <p class="muted">host param present (App Bridge).</p>
+  <% end %>
+</main>

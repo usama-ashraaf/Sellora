@@ -3,6 +3,8 @@ Rails.application.routes.draw do
   resources :pilot_requests, only: :create
 
   # Shopify OAuth (Phase A — M3 foundation). Marketing routes stay untouched above.
+  get "shopify", to: "shopify/app#show", as: :shopify_embedded_app
+  get "shopify/app", to: "shopify/app#show"
   get "shopify/install", to: "shopify/auth#install", as: :shopify_install
   get "auth/shopify/callback", to: "shopify/auth#callback", as: :shopify_callback
 
