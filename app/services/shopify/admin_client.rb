@@ -11,7 +11,7 @@ module Shopify
 
     PRODUCTS_QUERY = <<~GRAPHQL.freeze
       query CatalogProducts($cursor: String) {
-        products(first: 25, after: $cursor) {
+        products(first: 10, after: $cursor) {
           pageInfo {
             hasNextPage
             endCursor
@@ -21,7 +21,7 @@ module Shopify
             title
             handle
             status
-            variants(first: 100) {
+            variants(first: 50) {
               nodes {
                 id
                 title
@@ -33,7 +33,7 @@ module Shopify
                 }
                 inventoryItem {
                   id
-                  inventoryLevels(first: 20) {
+                  inventoryLevels(first: 10) {
                     nodes {
                       location {
                         id

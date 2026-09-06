@@ -29,4 +29,35 @@ namespace :sellora do
       warn "FAILED #{shop.shopify_domain}: #{e.message}"
     end
   end
+
+  desc "Diff catalog parity between two shops (default: Wave 1 outfitters + sapphire). Usage: sellora:catalog_parity[shop-a,shop-b]"
+  task :catalog_parity, [ :shop_a, :shop_b ] => :environment do |_t, args|
+    domain_a = args[:shop_a].presence || Sellora::CatalogParity::DEFAULT_DOMAINS[0]
+    domain_b = args[:shop_b].presence || Sellora::CatalogParity::DEFAULT_DOMAINS[1]
+
+    begin
+      result = Sellora::CatalogParity.for_domains(domain_a, domain_b)
+    rescue Sellora::CatalogParity::Error => e
+      abort e.message
+    end
+
+    puts "Catalog parity: #{result.shop_a_domain} vs #{result.shop_b_domain}"
+    puts "  counts_a=#{result.counts_a.inspect}"
+    puts "  counts_b=#{result.counts_b.inspect}"
+    puts "  sku_shared=#{result.sku_shared_count} only_a=#{result.sku_only_a.size} only_b=#{result.sku_only_b.size}"
+    if result.sku_only_a.any?
+      puts "  sku_only_a sample=#{result.sku_only_a.first(Sellora::CatalogParity::SAMPLE_LIMIT).inspect}"
+    end
+    if result.sku_only_b.any?
+      puts "  sku_only_b sample=#{result.sku_only_b.first(Sellora::CatalogParity::SAMPLE_LIMIT).inspect}"
+    end
+    if result.sample_mismatches.any?
+      puts "  sample_mismatches:"
+      result.sample_mismatches.each do |m|
+        puts "    sku=#{m[:sku]} handle_a=#{m[:handle_a]} handle_b=#{m[:handle_b]} diffs=#{m[:diffs].inspect}"
+      end
+    end
+    puts result.parity? ? "PARITY_OK" : "PARITY_DIFF"
+    abort "catalog parity failed" unless result.parity?
+  end
 end

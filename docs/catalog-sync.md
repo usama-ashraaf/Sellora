@@ -35,7 +35,7 @@ Stores (see `docs/dev-stores.md`):
 - `sellora-test-outfitters-like.myshopify.com`
 - `sellora-test-sapphire-like.myshopify.com`
 
-Prerequisites: app already installed (encrypted offline token in `shops`), DB migrated.
+Prerequisites: app already installed **through this Rails app OAuth** (encrypted offline token in `shops` — Partner Custom distribution alone does **not** create `Shop` rows), DB migrated. Local callback: `http://127.0.0.1:3000/auth/shopify/callback` (see `docs/shopify-install.md`).
 
 ```sh
 bin/rails db:prepare
@@ -82,7 +82,29 @@ SELECT catalog_variant_id, location_external_id, available FROM catalog_inventor
 - `lib/tasks/sellora.rake` — smoke tasks above
 
 
-## Dual-shop regression (Wave 1)
+## Catalog parity (Wave 1 dual-shop)
+
+After both shops are installed **and** synced, diff counts + SKU sets:
+
+```sh
+bin/rails sellora:catalog_parity
+# Or explicit domains:
+bin/rails "sellora:catalog_parity[sellora-test-outfitters-like.myshopify.com,sellora-test-sapphire-like.myshopify.com]"
+```
+
+What it compares:
+
+| Check | Notes |
+|-------|--------|
+| Counts | `products`, `variants`, `inventory_levels`, non-blank `skus` |
+| SKU set | Symmetric difference (`only_a` / `only_b`) |
+| Shared SKU shape | Sample mismatches on `option_summary`, `variant_title`, `inventory_sum` (handles may differ by brand flavor) |
+
+Exit: prints `PARITY_OK` or aborts with `PARITY_DIFF`. Implementation: `Sellora::CatalogParity` + `lib/tasks/sellora.rake`.
+
+Shopify Admin GraphQL queries use small page sizes (`products` 10 / `variants` 50 / `inventoryLevels` 10) to stay under the single-query cost limit (1000).
+
+## Deep shape dump (optional)
 
 Outfitters-like and Sapphire-like stores are seeded with **near-identical catalog shapes** for parallel SaaS testing. Sync is always **per-shop** (`shop_id` + stable `external_id` GIDs). The same Shopify GID string may appear in both shops as separate rows — compare shapes across shops without joining on primary keys:
 
@@ -113,4 +135,4 @@ bin/rails runner '
 '
 ```
 
-Assert equality of those shape hashes in QA when both stores are fixture-aligned.
+Prefer `sellora:catalog_parity` for day-to-day Wave 1 regression; use the dump above when debugging a specific shape mismatch.

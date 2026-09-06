@@ -18,10 +18,12 @@ In Partners → Apps → Sellora → App setup (required):
 
 | Setting | Value |
 |--------|--------|
-| **App URL** | `https://<tunnel-host>/` (or `https://<tunnel-host>/shopify/install`) |
-| **Allowed redirection URL(s)** | `https://<tunnel-host>/auth/shopify/callback` |
+| **App URL** | Prefer `http://127.0.0.1:3000/` for local OAuth; or `https://<tunnel-host>/` when using a tunnel |
+| **Allowed redirection URL(s)** | Prefer `http://127.0.0.1:3000/auth/shopify/callback` for local installs; also add `https://<tunnel-host>/auth/shopify/callback` when tunneling |
 
 The Allowed redirection URL **must** end with `/auth/shopify/callback` (Rails route `shopify_callback`). A mismatch here is a common cause of OAuth token-exchange failures.
+
+**Important:** Partner **Custom distribution** install marks the app installed in Shopify Admin but does **not** create a Rails `shops` row with an offline token. You must complete OAuth through this app (`GET /shopify/install?shop=…` → callback) so `Shop` persists an encrypted `access_token`. Localhost callback is preferred when already allow-listed on the Partner app.
 
 Enable **Phase A** scopes only (see `docs/shopify-scopes.md`). Do not enable Phase B/C scopes yet.
 
