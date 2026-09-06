@@ -4,6 +4,8 @@ A Rails marketing website for Sellora, a clothing-brand catalog and sales operat
 
 - [Original project brief](docs/initial-project-brief.md)
 - [Implementation review, checks and remaining launch work](docs/marketing-review.md)
+- [Shopify local install (M3 Phase A)](docs/shopify-install.md)
+- [Shopify API scopes](docs/shopify-scopes.md)
 
 ## Run locally
 
@@ -32,4 +34,4 @@ bin/rails zeitwerk:check
 
 The JavaScript checks use built-in Node functionality and need no npm dependencies. If you precompile assets in development, run `bin/rails assets:clobber` afterward to restore live asset updates.
 
-This is a local review implementation. Public collection needs finalized privacy information and operational ownership before deployment. Shopify integration and all later application milestones remain future work.
+This is a local review implementation. Public collection needs finalized privacy information and operational ownership before deployment. Shopify OAuth + webhook scaffolding (M3 Phase A) is documented in docs/shopify-install.md; later sync/order milestones remain future work.

@@ -33,3 +33,9 @@
 # Ignore key files for decrypting credentials and more.
 /config/*.key
 
+
+# Allow committed env template (secrets stay in ignored .env*).
+!/.env.example
+
+# Never commit local bundler installs.
+/vendor/bundle
