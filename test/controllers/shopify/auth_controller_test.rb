@@ -14,9 +14,10 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     ENV.delete("SHOPIFY_CLIENT_ID")
     ENV.delete("SHOPIFY_API_SECRET")
     ENV.delete("SHOPIFY_APP_URL")
+    ENV.delete("SHOPIFY_SCOPES")
   end
 
-  test "install redirects to Shopify authorize URL with state" do
+  test "install redirects to Shopify authorize URL with Wave 1 scopes" do
     get shopify_install_path, params: { shop: "acme.myshopify.com" }
     assert_response :redirect
     location = response.redirect_url
@@ -25,6 +26,10 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     assert_includes location, "read_products"
     assert_includes location, "read_inventory"
     assert_includes location, "read_locations"
+    assert_includes location, "write_pixels"
+    assert_includes location, "read_customer_events"
+    refute_includes location, "write_products"
+    refute_includes location, "read_orders"
     assert_match(/state=[0-9a-f]+/, location)
   end
 
@@ -72,7 +77,7 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Invalid OAuth HMAC/, response.body)
   end
 
-  test "callback rejects broader than Phase A scopes" do
+  test "callback rejects write_products beyond allowed ceiling" do
     get shopify_install_path, params: { shop: "acme.myshopify.com" }
     state = session[:shopify_oauth_state]
 
@@ -91,7 +96,29 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :forbidden
-    assert_match(/Phase A/, response.body)
+    assert_match(/allowed Wave 1 scopes/, response.body)
+    assert_nil Shop.find_by(shopify_domain: "acme.myshopify.com")
+  end
+
+  test "callback rejects read_orders beyond allowed ceiling" do
+    get shopify_install_path, params: { shop: "acme.myshopify.com" }
+    state = session[:shopify_oauth_state]
+
+    fake_token = { "access_token" => "shpat_test_offline", "scope" => "read_products,read_orders" }
+    original = Shopify::Oauth.method(:exchange_code)
+    Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
+
+    begin
+      get shopify_callback_path, params: signed_callback_params(
+        shop: "acme.myshopify.com",
+        code: "auth-code",
+        state: state
+      )
+    ensure
+      Shopify::Oauth.define_singleton_method(:exchange_code, original)
+    end
+
+    assert_response :forbidden
     assert_nil Shop.find_by(shopify_domain: "acme.myshopify.com")
   end
 
@@ -127,10 +154,14 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     state = session[:shopify_oauth_state]
     assert state.present?
 
-    fake_token = { "access_token" => "shpat_test_offline", "scope" => "read_products,read_inventory,read_locations" }
+    fake_token = {
+      "access_token" => "shpat_test_offline",
+      "scope" => "read_products,read_inventory,read_locations,write_pixels,read_customer_events"
+    }
     original = Shopify::Oauth.method(:exchange_code)
     Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
     registrar_calls = stub_webhook_registrar!
+    pixel_calls = stub_web_pixel_registrar!
 
     begin
       get shopify_callback_path, params: signed_callback_params(
@@ -141,6 +172,7 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     ensure
       Shopify::Oauth.define_singleton_method(:exchange_code, original)
       restore_webhook_registrar!
+      restore_web_pixel_registrar!
     end
 
     assert_response :success
@@ -153,6 +185,34 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     refute_equal Account::DEMO_NAME, shop.account.name
     assert_equal 1, registrar_calls.size
     assert_equal shop.id, registrar_calls.first.id
+    assert_equal 1, pixel_calls.size
+    assert_equal shop.id, pixel_calls.first.id
+  end
+
+  test "callback accepts Phase A only grant without pixel scopes" do
+    get shopify_install_path, params: { shop: "acme.myshopify.com" }
+    state = session[:shopify_oauth_state]
+
+    fake_token = { "access_token" => "shpat_phase_a", "scope" => "read_products,read_inventory,read_locations" }
+    original = Shopify::Oauth.method(:exchange_code)
+    Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
+    stub_webhook_registrar!
+    stub_web_pixel_registrar!
+
+    begin
+      get shopify_callback_path, params: signed_callback_params(
+        shop: "acme.myshopify.com",
+        code: "auth-code",
+        state: state
+      )
+    ensure
+      Shopify::Oauth.define_singleton_method(:exchange_code, original)
+      restore_webhook_registrar!
+      restore_web_pixel_registrar!
+    end
+
+    assert_response :success
+    assert Shop.find_by!(shopify_domain: "acme.myshopify.com").installed?
   end
 
   test "callback re-install preserves existing account_id" do
@@ -167,10 +227,14 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     get shopify_install_path, params: { shop: "acme.myshopify.com" }
     state = session[:shopify_oauth_state]
 
-    fake_token = { "access_token" => "shpat_reinstall", "scope" => "read_products,read_inventory,read_locations" }
+    fake_token = {
+      "access_token" => "shpat_reinstall",
+      "scope" => "read_products,read_inventory,read_locations,write_pixels,read_customer_events"
+    }
     original = Shopify::Oauth.method(:exchange_code)
     Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
     stub_webhook_registrar!
+    stub_web_pixel_registrar!
 
     begin
       get shopify_callback_path, params: signed_callback_params(
@@ -181,6 +245,7 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     ensure
       Shopify::Oauth.define_singleton_method(:exchange_code, original)
       restore_webhook_registrar!
+      restore_web_pixel_registrar!
     end
 
     assert_response :success
@@ -193,7 +258,10 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     get shopify_install_path, params: { shop: "acme.myshopify.com" }
     state = session[:shopify_oauth_state]
 
-    fake_token = { "access_token" => "shpat_test_offline", "scope" => "read_products,read_inventory,read_locations" }
+    fake_token = {
+      "access_token" => "shpat_test_offline",
+      "scope" => "read_products,read_inventory,read_locations,write_pixels,read_customer_events"
+    }
     original = Shopify::Oauth.method(:exchange_code)
     Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
 
@@ -201,6 +269,7 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     Shopify::WebhookRegistrar.define_singleton_method(:call) do |_shop|
       raise Shopify::WebhookRegistrar::Error, "boom"
     end
+    stub_web_pixel_registrar!
 
     begin
       get shopify_callback_path, params: signed_callback_params(
@@ -211,6 +280,40 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     ensure
       Shopify::Oauth.define_singleton_method(:exchange_code, original)
       Shopify::WebhookRegistrar.define_singleton_method(:call, original_reg)
+      restore_web_pixel_registrar!
+    end
+
+    assert_response :success
+    assert Shop.find_by!(shopify_domain: "acme.myshopify.com").installed?
+  end
+
+  test "callback still succeeds when web pixel registration fails" do
+    get shopify_install_path, params: { shop: "acme.myshopify.com" }
+    state = session[:shopify_oauth_state]
+
+    fake_token = {
+      "access_token" => "shpat_test_offline",
+      "scope" => "read_products,read_inventory,read_locations,write_pixels,read_customer_events"
+    }
+    original = Shopify::Oauth.method(:exchange_code)
+    Shopify::Oauth.define_singleton_method(:exchange_code) { |**_| fake_token }
+    stub_webhook_registrar!
+
+    original_pixel = Shopify::WebPixelRegistrar.method(:call)
+    Shopify::WebPixelRegistrar.define_singleton_method(:call) do |_shop|
+      raise Shopify::WebPixelRegistrar::Error, "boom"
+    end
+
+    begin
+      get shopify_callback_path, params: signed_callback_params(
+        shop: "acme.myshopify.com",
+        code: "auth-code",
+        state: state
+      )
+    ensure
+      Shopify::Oauth.define_singleton_method(:exchange_code, original)
+      restore_webhook_registrar!
+      Shopify::WebPixelRegistrar.define_singleton_method(:call, original_pixel)
     end
 
     assert_response :success
@@ -234,6 +337,23 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
 
     Shopify::WebhookRegistrar.define_singleton_method(:call, @webhook_registrar_original)
     @webhook_registrar_original = nil
+  end
+
+  def stub_web_pixel_registrar!
+    @web_pixel_registrar_original = Shopify::WebPixelRegistrar.method(:call)
+    calls = []
+    Shopify::WebPixelRegistrar.define_singleton_method(:call) do |shop|
+      calls << shop
+      { shop_id: shop.id, shopify_domain: shop.shopify_domain, status: :created, id: "gid://shopify/WebPixel/stub", settings: {} }
+    end
+    calls
+  end
+
+  def restore_web_pixel_registrar!
+    return unless @web_pixel_registrar_original
+
+    Shopify::WebPixelRegistrar.define_singleton_method(:call, @web_pixel_registrar_original)
+    @web_pixel_registrar_original = nil
   end
 
   def signed_callback_params(shop:, code:, state:)

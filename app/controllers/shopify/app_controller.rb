@@ -15,7 +15,8 @@ module Shopify
       @host = params[:host].presence
       @embedded_params_present = params[:shop].present? || params[:host].present? || params[:id_token].present?
       @shop_record = find_shop_record
-      @phase_a_scopes = ShopifyConfig::PHASE_A_SCOPES
+      @allowed_scopes = ShopifyConfig::ALLOWED_SCOPES
+      @phase_a_scopes = ShopifyConfig::PHASE_A_SCOPES # back-compat for any partials
       @app_url = ShopifyConfig.app_url
       @client_id = ShopifyConfig.client_id
     end

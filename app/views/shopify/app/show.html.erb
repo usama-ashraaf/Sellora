@@ -28,13 +28,13 @@
     </div>
   <% end %>
 
-  <h2 style="font-size:1.05rem;margin-top:1.25rem;">Phase A scopes</h2>
+  <h2 style="font-size:1.05rem;margin-top:1.25rem;">Wave 1 allowed scopes</h2>
   <ul>
-    <% @phase_a_scopes.each do |scope| %>
+    <% @allowed_scopes.each do |scope| %>
       <li><code><%= scope %></code></li>
     <% end %>
   </ul>
-  <p class="muted">Phase B scopes are not enabled.</p>
+  <p class="muted">Phase B <code>read_orders</code> / Phase C <code>write_products</code> are not enabled.</p>
 
   <h2 style="font-size:1.05rem;margin-top:1.25rem;">Install &amp; sync</h2>
   <ul>

@@ -42,7 +42,7 @@ Phase A topics only (registered via `Shopify::WebhookRegistrar` / `bin/rails sel
 | `INVENTORY_LEVELS_UPDATE` | `POST https://<tunnel-host>/webhooks/shopify/inventory_levels_update` |
 | `APP_UNINSTALLED` | `POST https://<tunnel-host>/webhooks/shopify/app_uninstalled` |
 
-After OAuth or when `SHOPIFY_APP_URL` changes, run `bin/rails sellora:register_webhooks_all` (source `.env` first). Phase B orders/pixel topics are **not** registered yet.
+After OAuth or when `SHOPIFY_APP_URL` changes, run `bin/rails sellora:register_webhooks_all` (source `.env` first). Phase B **orders** webhook topics are **not** registered yet. Web pixel uses `sellora:register_web_pixel_all` (separate).
 
 Full install steps: `docs/shopify-install.md`.
 
@@ -50,6 +50,7 @@ Full install steps: `docs/shopify-install.md`.
 - [x] Partners / Dev Dashboard access
 - [x] Both stores created
 - [x] Phase A scopes on Partner app: `read_products`, `read_inventory`, `read_locations`
+- [ ] Pixel scopes on Partner Dev Dashboard: `write_pixels`, `read_customer_events` (Eng browser save; Usama approved 2026-09-06)
 - [x] Custom distribution configured (multi-store for Plus org of Outfitters-like)
 - [x] Sellora app **installed** on Outfitters-like
 - [x] Sellora app **installed** on Sapphire-like
@@ -79,9 +80,10 @@ Allowed redirection URL must be `https://<tunnel-host>/auth/shopify/callback`.
 2. Confirm **Sellora** appears under **Installed apps**.
 3. Open Sellora — with Partner **App URL** = `https://<public-host>/shopify` and Rails reachable there, you should see the embedded Sellora status page (shop / Phase A scopes / install links). A localhost App URL will show a **blank** iframe. If the public host is not up yet, install presence under Installed apps is still the presence check.
 
-### 3. Confirm Phase A scopes (optional)
-Partner app Dev Dashboard → Sellora → version scopes should list only:
-`read_products`, `read_inventory`, `read_locations`.
+### 3. Confirm Wave 1 scopes (optional)
+Partner app Dev Dashboard → Sellora → version scopes should list:
+`read_products`, `read_inventory`, `read_locations`, `write_pixels`, `read_customer_events`.
+Do **not** enable `read_orders` / `write_products` yet.
 
 ### 4. Smoke products (when Rails + env are up)
 1. Copy secrets from `/workspace/sellora/secrets/shopify-partner-app.env` into local `.env` (never commit).
@@ -107,4 +109,4 @@ CSV seeds:
 ## Notes
 - M1 marketing site is separate — do not change it for store work.
 - Secrets stay in `/workspace/sellora/secrets/shopify-partner-app.env` (mode 600). Never commit.
-- Hold `read_orders` / write scopes until PM enables Phase B/C.
+- Hold `read_orders` / `write_products` until PM enables Phase B/C. Pixel write scope (`write_pixels`) is Wave 1–approved.

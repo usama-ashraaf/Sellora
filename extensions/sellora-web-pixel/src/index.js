@@ -2,7 +2,7 @@
  * Sellora Web Pixel — consent-aware storefront event stub (M3 lean).
  *
  * Incomplete coverage (documented blockers — see docs/web-pixel.md):
- * - Activation needs write_pixels + read_customer_events (not Phase A OAuth).
+ * - Activation uses write_pixels + read_customer_events (Wave 1 OAuth / WebPixelRegistrar).
  * - Ingest uses a shared secret today; app proxy / authenticated channel later.
  * - Checkout / order events deferred to Phase B (no read_orders).
  * - Shopify may not load the pixel at all when required consent is denied.

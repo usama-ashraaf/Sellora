@@ -13,4 +13,11 @@ class SelloraRakeTest < ActiveSupport::TestCase
     assert Rake::Task.task_defined?("sellora:sync_catalog_all")
     assert Rake::Task.task_defined?("sellora:catalog_parity")
   end
+
+  test "sellora webhook and web pixel register tasks are defined" do
+    assert Rake::Task.task_defined?("sellora:register_webhooks")
+    assert Rake::Task.task_defined?("sellora:register_webhooks_all")
+    assert Rake::Task.task_defined?("sellora:register_web_pixel")
+    assert Rake::Task.task_defined?("sellora:register_web_pixel_all")
+  end
 end

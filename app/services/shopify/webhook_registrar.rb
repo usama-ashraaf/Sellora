@@ -2,7 +2,7 @@
 
 module Shopify
   # Registers Phase A Admin webhook subscriptions via GraphQL (idempotent).
-  # Phase B (orders / pixel) is intentionally out of scope.
+  # Phase B orders webhooks are intentionally out of scope (pixel uses WebPixelRegistrar).
   class WebhookRegistrar
     Error = Class.new(StandardError)
 

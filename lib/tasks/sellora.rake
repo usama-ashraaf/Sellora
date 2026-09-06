@@ -92,4 +92,32 @@ namespace :sellora do
       warn "FAILED #{shop.shopify_domain}: #{e.message}"
     end
   end
+
+  desc "Register / update Sellora web pixel for one shop (e.g. sellora:register_web_pixel[sellora-test-outfitters-like.myshopify.com])"
+  task :register_web_pixel, [ :shop_domain ] => :environment do |_t, args|
+    domain = Shop.normalize_domain(args[:shop_domain])
+    abort "Usage: bin/rails sellora:register_web_pixel[shop-domain.myshopify.com]" if domain.blank?
+
+    shop = Shop.find_by(shopify_domain: domain)
+    abort "No shop row for #{domain}" if shop.nil?
+    abort "Shop #{domain} is not installed (missing token or uninstalled)" unless shop.installed?
+
+    result = Shopify::WebPixelRegistrar.call(shop)
+    puts "Registered web pixel shop_id=#{result[:shop_id]} domain=#{result[:shopify_domain]} status=#{result[:status]} id=#{result[:id]}"
+    puts "  settings=#{result[:settings].inspect}"
+  end
+
+  desc "Register / update Sellora web pixel for every installed shop"
+  task register_web_pixel_all: :environment do
+    shops = Shop.installed.to_a
+    abort "No installed shops" if shops.empty?
+
+    shops.each do |shop|
+      result = Shopify::WebPixelRegistrar.call(shop)
+      puts "Registered web pixel shop_id=#{result[:shop_id]} domain=#{result[:shopify_domain]} status=#{result[:status]} id=#{result[:id]}"
+      puts "  settings=#{result[:settings].inspect}"
+    rescue Shopify::AdminClient::Error, Shopify::WebPixelRegistrar::Error => e
+      warn "FAILED #{shop.shopify_domain}: #{e.message}"
+    end
+  end
 end

@@ -1,8 +1,8 @@
 # Shopify local install (Phase A / M3 foundation)
 
-Install Sellora on a Partner **development store** with least-privilege Phase A scopes only:
+Install Sellora on a Partner **development store** with Wave 1 scopes (Phase A catalog + pixel):
 
-`read_products`, `read_inventory`, `read_locations`
+`read_products`, `read_inventory`, `read_locations`, `write_pixels`, `read_customer_events`
 
 ## Prerequisites
 
@@ -31,7 +31,7 @@ Shopify Admin loads the Partner **App URL** inside an iframe. That URL must serv
 
 - Includes Shopify App Bridge via CDN
 - Omits `X-Frame-Options: SAMEORIGIN` (Rails default blanks the iframe) and sets CSP `frame-ancestors https://admin.shopify.com https://*.myshopify.com`
-- Shows shop / Phase A scopes / install health (not a blank page)
+- Shows shop / Wave 1 allowed scopes / install health (not a blank page)
 
 **Localhost App URL will always show a broken/blank embed in Admin** — Admin cannot reach `127.0.0.1` from Shopify’s iframe. A public HTTPS tunnel (or deployed host) is required for embed smoke. PM owns the tunnel; set Partner App URL once the public host is known.
 
@@ -39,11 +39,11 @@ Shopify Admin loads the Partner **App URL** inside an iframe. That URL must serv
 
 1. Ensure Rails is reachable at `SHOPIFY_APP_URL` over HTTPS and Partner **App URL** is `https://<public-host>/shopify`.
 2. Open Admin → Apps → **Sellora** (e.g. https://admin.shopify.com/store/sellora-test-outfitters-like → Apps → Sellora).
-3. You should see the Sellora status page (shop domain if passed, Phase A scopes, install links) — not a blank iframe.
+3. You should see the Sellora status page (shop domain if passed, Wave 1 scopes, install links) — not a blank iframe.
 
 **Important:** Partner **Custom distribution** install marks the app installed in Shopify Admin but does **not** create a Rails `shops` row with an offline token. You must complete OAuth through this app (`GET /shopify/install?shop=…` → callback) so `Shop` persists an encrypted `access_token`.
 
-Enable **Phase A** scopes only (see `docs/shopify-scopes.md`). Do not enable Phase B/C scopes yet.
+Enable **Wave 1** scopes (Phase A + pixel; see `docs/shopify-scopes.md`). Do **not** enable Phase B `read_orders` or Phase C `write_products` yet. Partner Dev Dashboard must list the same five scopes.
 
 ### Webhook paths + GraphQL registration (Phase A)
 
@@ -57,7 +57,7 @@ Endpoints (REST topic → Rails path). Callback base is `SHOPIFY_APP_URL` (publi
 | `INVENTORY_LEVELS_UPDATE` | `inventory_levels/update` | `POST https://<tunnel-host>/webhooks/shopify/inventory_levels_update` |
 | `APP_UNINSTALLED` | `app/uninstalled` | `POST https://<tunnel-host>/webhooks/shopify/app_uninstalled` |
 
-**Do not add Phase B** (orders / pixel) topics here.
+**Do not add Phase B orders** topics here (pixel uses `WebPixelRegistrar`, not webhooks).
 
 Registration is automatic after a successful OAuth shop persist (`Shopify::WebhookRegistrar`), and can be re-run:
 
@@ -96,7 +96,7 @@ Rails does not load `.env` automatically in this app; export variables in your s
 
 1. Open:
    `https://<tunnel-host>/shopify/install?shop=<your-store>.myshopify.com`
-2. Approve the OAuth consent screen (Phase A scopes).
+2. Approve the OAuth consent screen (Wave 1: Phase A + pixel scopes).
 3. You should land on `/auth/shopify/callback` and see an install confirmation.
 4. Confirm a `shops` row exists (`bin/rails runner 'puts Shop.pluck(:shopify_domain, :scope, :uninstalled_at).inspect'`). The access token is **encrypted at rest** and filtered from logs — do not print it.
 
@@ -113,7 +113,7 @@ Rails does not load `.env` automatically in this app; export variables in your s
 - OAuth uses a session `state` CSRF token.
 - When `SHOPIFY_API_SECRET` is set, callback **requires** query HMAC verification (no optional skip).
 - Callback `shop` must match the shop stored in session at install start.
-- Granted OAuth scopes must be a subset of Phase A; broader grants are rejected.
+- Granted OAuth scopes must be a subset of `ALLOWED_SCOPES` (Phase A + pixel); `write_products` / `read_orders` are rejected.
 - `shops.access_token` is encrypted with Active Record encryption (keys via ENV only).
 - `support_unencrypted_data` is **temporary**: it lets pre-encryption plaintext tokens remain readable until each row is re-saved (which re-encrypts). **Follow-up:** once every `shops.access_token` is known encrypted, set `support_unencrypted_data` to `false` in `config/initializers/active_record_encryption.rb` and drop the plaintext fallback.
 - Webhooks verify `X-Shopify-Hmac-Sha256` and record an idempotency ledger (`webhook_events`) keyed by `X-Shopify-Webhook-Id` (or a body/HMAC fingerprint fallback). Duplicates are acknowledged with `200` and skip business logic.
@@ -158,4 +158,13 @@ bin/rails sellora:register_webhooks_all
 
 ## Web Pixel (consent-aware stub)
 
-Storefront pixel extension + `POST /web_pixels/events` ingest: **`docs/web-pixel.md`**. Not registered by `sellora:register_webhooks*` (different API + scopes).
+Storefront pixel extension + `POST /web_pixels/events` ingest: **`docs/web-pixel.md`**.
+
+Pixel scopes are **approved and enabled** for Wave 1. Registration is automatic after OAuth (`Shopify::WebPixelRegistrar`) and can be re-run:
+
+```sh
+bin/rails "sellora:register_web_pixel[sellora-test-outfitters-like.myshopify.com]"
+bin/rails sellora:register_web_pixel_all
+```
+
+Not registered by `sellora:register_webhooks*` (different API). Partner Dev Dashboard must also list `write_pixels` + `read_customer_events`.

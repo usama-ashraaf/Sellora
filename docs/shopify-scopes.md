@@ -23,15 +23,17 @@ Principle: **least privilege**. Enable only what the current milestone needs. Ne
 - Web Pixel Extension (storefront events; consent-aware) — stub in `extensions/sellora-web-pixel/`; see [web-pixel.md](./web-pixel.md)
 - Optional storefront extension later (size select / placement) — not required for first install
 
-**Pixel activation scopes (not Phase A — do not add to OAuth ceiling yet):**
+### Pixel scopes — Wave 1 enabled (Usama approved 2026-09-06)
+**Approved and enabled** in OAuth ceiling (`ShopifyConfig::PIXEL_SCOPES` → `ALLOWED_SCOPES = PHASE_A + PIXEL`):
+
 | Scope | Why |
 |-------|-----|
 | `write_pixels` | `webPixelCreate` / merchant pixel settings |
 | `read_customer_events` | Customer events access for app pixels |
 
-Hold until Wave 1 live pixel E2E is scheduled; extension can be deployed via CLI/Dev Dashboard without widening `ShopifyConfig::PHASE_A_SCOPES`.
+Rails requests these on install and registers the pixel via `Shopify::WebPixelRegistrar` (see [web-pixel.md](./web-pixel.md)). **Partner Dev Dashboard must also list both scopes** (Eng saves via browser separately).
 
-### Phase B — M3 orders + M4 monitoring
+### Phase B — M3 orders + M4 monitoring (parked)
 Add when building order/outcome + promo monitoring:
 | Scope | Why |
 |-------|-----|
@@ -62,13 +64,14 @@ Same write scopes as Phase C; no new scopes expected. Controls are product/ops (
 - Any scope that exposes storefront private credentials into JS (never)
 
 ## Current decision (2026-09-06)
-- **Installed / enabled for early test stores:** Phase A only  
-- **Approved, not enabled yet:** Phase B when M3 order path / M4 starts  
+- **Installed / enabled for Wave 1:** Phase A + pixel (`write_pixels`, `read_customer_events`)  
+- **OAuth ceiling:** `ShopifyConfig::ALLOWED_SCOPES` (still rejects `write_products` / `read_orders`)  
+- **Parked:** Phase B orders until order path / M4 starts  
 - **Approved in principle, not enabled:** Phase C at M5  
 - Eng must verify exact scope strings against current Shopify Admin API version before flipping in Partners.
 
 ## Install checklist (Eng)
-1. Set Phase A scopes on Partner app  
-2. Install on Outfitters-like + Sapphire-like dev stores  
-3. Confirm OAuth grant + webhook registration endpoint (Rails) when M3 code lands  
+1. Set Wave 1 scopes on Partner app (Phase A + pixel pair)  
+2. Install on Outfitters-like + Sapphire-like dev stores (re-OAuth so grants include pixel)  
+3. Confirm OAuth grant + webhook + web pixel registration (Rails)  
 4. Document store URLs + install status in `docs/dev-stores.md`

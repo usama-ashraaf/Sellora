@@ -53,9 +53,9 @@ module Shopify
       end
 
       token_payload = ::Shopify::Oauth.exchange_code(shop: domain, code: params[:code])
-      unless ShopifyConfig.phase_a_scopes_subset?(token_payload["scope"])
+      unless ShopifyConfig.allowed_scopes_subset?(token_payload["scope"])
         reset_oauth_session
-        return render plain: "OAuth grant rejected: scopes must be a subset of Phase A (#{ShopifyConfig::PHASE_A_SCOPES.join(', ')}). Got: #{token_payload['scope']}", status: :forbidden
+        return render plain: "OAuth grant rejected: scopes must be a subset of allowed Wave 1 scopes (#{ShopifyConfig::ALLOWED_SCOPES.join(', ')}). Got: #{token_payload['scope']}", status: :forbidden
       end
 
       persist_shop!(domain, token_payload)
@@ -84,6 +84,7 @@ module Shopify
       ensure_account!(shop)
       shop.save!
       register_webhooks_best_effort!(shop)
+      register_web_pixel_best_effort!(shop)
     end
 
     # Phase A webhook topics — best-effort so OAuth install still succeeds if GraphQL fails.
@@ -91,6 +92,13 @@ module Shopify
       ::Shopify::WebhookRegistrar.call(shop)
     rescue ::Shopify::AdminClient::Error, ::Shopify::WebhookRegistrar::Error => e
       Rails.logger.warn("[shopify oauth] webhook registration failed shop=#{shop.shopify_domain}: #{e.class}: #{e.message}")
+    end
+
+    # Wave 1 web pixel — best-effort like webhooks (needs write_pixels + read_customer_events).
+    def register_web_pixel_best_effort!(shop)
+      ::Shopify::WebPixelRegistrar.call(shop)
+    rescue ::Shopify::AdminClient::Error, ::Shopify::WebPixelRegistrar::Error => e
+      Rails.logger.warn("[shopify oauth] web pixel registration failed shop=#{shop.shopify_domain}: #{e.class}: #{e.message}")
     end
 
     # Assign a dedicated Account on first install / when account_id is nil.

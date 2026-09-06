@@ -23,6 +23,8 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "read_products"
     assert_includes response.body, "read_inventory"
     assert_includes response.body, "read_locations"
+    assert_includes response.body, "write_pixels"
+    assert_includes response.body, "read_customer_events"
     assert_includes response.body, "shopifycloud/app-bridge.js"
   end
 

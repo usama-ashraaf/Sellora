@@ -1,8 +1,15 @@
 # frozen_string_literal: true
 
 module ShopifyConfig
-  # Hard Phase A ceiling — OAuth must never accept a broader grant than this set.
+  # Phase A catalog reads — foundation for install + catalog sync.
   PHASE_A_SCOPES = %w[read_products read_inventory read_locations].freeze
+
+  # Wave 1 web pixel activation (Usama approved 2026-09-06).
+  PIXEL_SCOPES = %w[write_pixels read_customer_events].freeze
+
+  # Hard OAuth ceiling — never accept a broader grant than this set.
+  # Still rejects write_products, read_orders, and other Phase B/C scopes.
+  ALLOWED_SCOPES = (PHASE_A_SCOPES + PIXEL_SCOPES).freeze
 
   module_function
 
@@ -18,11 +25,11 @@ module ShopifyConfig
     ENV.fetch("SHOPIFY_APP_URL", "http://127.0.0.1:3000").to_s.chomp("/")
   end
 
-  # Defaults and ENV are clamped to Phase A only (never request broader scopes).
+  # Defaults and ENV are clamped to ALLOWED_SCOPES (Phase A + pixel).
   def scopes
-    requested = parse_scopes(ENV.fetch("SHOPIFY_SCOPES", PHASE_A_SCOPES.join(",")))
-    allowed = requested.select { |scope| PHASE_A_SCOPES.include?(scope) }
-    (allowed.presence || PHASE_A_SCOPES).join(",")
+    requested = parse_scopes(ENV.fetch("SHOPIFY_SCOPES", ALLOWED_SCOPES.join(",")))
+    allowed = requested.select { |scope| ALLOWED_SCOPES.include?(scope) }
+    (allowed.presence || ALLOWED_SCOPES).join(",")
   end
 
   def api_version
@@ -43,12 +50,17 @@ module ShopifyConfig
     ENV.fetch("WEB_PIXEL_INGEST_SECRET", "")
   end
 
-  # Granted scopes must be a subset of Phase A (never broader).
-  def phase_a_scopes_subset?(granted)
+  # Granted scopes must be a subset of ALLOWED_SCOPES (never broader).
+  def allowed_scopes_subset?(granted)
     granted_list = parse_scopes(granted)
     return false if granted_list.empty?
 
-    granted_list.all? { |scope| PHASE_A_SCOPES.include?(scope) }
+    granted_list.all? { |scope| ALLOWED_SCOPES.include?(scope) }
+  end
+
+  # Back-compat alias — ceiling is now PHASE_A + PIXEL (see ALLOWED_SCOPES).
+  def phase_a_scopes_subset?(granted)
+    allowed_scopes_subset?(granted)
   end
 
   def parse_scopes(raw)
