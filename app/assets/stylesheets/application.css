@@ -254,6 +254,17 @@
     .journey.is-revealed li:nth-child(4) .journey-bar::before { animation-delay: .3s; }
     .journey.is-revealed li:nth-child(5) .journey-bar::before { animation-delay: .4s; }
   }
+  /* F-01 belt-and-suspenders: same @layer components as enter rules */
+  @media (prefers-reduced-motion: reduce) {
+    .hero-copy,
+    .workspace,
+    .journey.is-revealed .journey-bar::before {
+      animation: none !important;
+      animation-delay: 0s !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
 }
 @layer responsive {
   @media (max-width: 1150px) {
