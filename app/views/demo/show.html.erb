@@ -1,0 +1,111 @@
+<% content_for :title, "Sellora Demo — Fictional illustrative data" %>
+
+<div class="demo-app">
+  <div class="demo-banner demo-banner--top" role="status">
+    <strong>FICTIONAL DEMO / ILLUSTRATIVE DATA</strong>
+    <span>Not live merchant data. Wave 1 clothing fixtures &amp; seeded audit rules only.</span>
+  </div>
+
+  <header class="demo-header shell">
+    <a class="wordmark" href="<%= root_path %>">Sellora<span class="brand-dot" aria-hidden="true">.</span></a>
+    <div class="demo-header-meta">
+      <span class="demo-label">IN-APP DEMO</span>
+      <span class="micro">Account: <%= @account.name %></span>
+    </div>
+  </header>
+
+  <main class="shell demo-main">
+    <div class="demo-banner demo-banner--inline" role="note">
+      This <code>/demo</code> workspace is an open M2 foundation preview. No session auth yet — do not treat counts or findings as production truth.
+    </div>
+
+    <section class="demo-hero">
+      <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> Application foundation</p>
+      <h1>Catalog audit workspace <span class="serif">(fictional)</span></h1>
+      <p>Scoped to the <strong><%= @account.name %></strong> account. Marketing site remains at <a class="text-link" href="<%= root_path %>">/</a>.</p>
+    </section>
+
+    <section class="demo-stats" aria-label="Catalog counts">
+      <div>
+        <span>Shops in account</span>
+        <strong><%= @shops.size %></strong>
+      </div>
+      <div>
+        <span>Catalog products</span>
+        <strong><%= @product_count %></strong>
+      </div>
+      <div>
+        <span>Variants</span>
+        <strong><%= @variant_count %></strong>
+      </div>
+      <div>
+        <span>Active rule set</span>
+        <strong><%= @rule_set.version %></strong>
+        <small><%= @rule_set.name %></small>
+      </div>
+    </section>
+
+    <section class="demo-panel">
+      <div class="demo-panel-head">
+        <h2>Connected shops</h2>
+        <span class="demo-label">FICTIONAL</span>
+      </div>
+      <% if @shops.any? %>
+        <ul class="demo-shop-list">
+          <% @shops.each do |shop| %>
+            <li>
+              <strong><%= shop.shopify_domain %></strong>
+              <span><%= shop.installed? ? "installed (token present)" : "not installed" %></span>
+              <span><%= shop.catalog_products.count %> products</span>
+            </li>
+          <% end %>
+        </ul>
+      <% else %>
+        <p class="micro">No shops scoped to this account yet. Install Wave 1 stores or run catalog sync.</p>
+      <% end %>
+    </section>
+
+    <section class="demo-panel">
+      <div class="demo-panel-head">
+        <h2>Sample audit findings</h2>
+        <span class="demo-label">ILLUSTRATIVE</span>
+      </div>
+      <p class="micro">Rule set <strong><%= @rule_set.version %></strong> · <%= @rule_set.audit_rules.count %> clothing rules seeded from product-brief themes.</p>
+
+      <% if @findings.any? %>
+        <div class="demo-findings" role="list">
+          <% @findings.each_with_index do |finding, idx| %>
+            <article class="finding-row" role="listitem">
+              <span class="finding-number"><%= format("%02d", idx + 1) %></span>
+              <div>
+                <strong><%= finding.message %></strong>
+                <span>
+                  <%= finding.audit_rule.rule_key %>
+                  · <%= finding.shop.shopify_domain %>
+                  <% if finding.catalog_product %>· <%= finding.catalog_product.title %><% end %>
+                </span>
+              </div>
+              <span class="severity"><%= finding.severity %></span>
+            </article>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="micro">No findings yet. Sync a catalog with intentional size gaps / missing size attrs, then reopen this page to run the stub evaluator.</p>
+      <% end %>
+    </section>
+
+    <section class="demo-panel demo-panel--muted">
+      <h2>Rules in <%= @rule_set.version %></h2>
+      <ul class="demo-rule-list">
+        <% @rule_set.audit_rules.order(:rule_key).each do |rule| %>
+          <li><code><%= rule.rule_key %></code> — <%= rule.title %> <span class="severity <%= rule.severity == 'low' ? 'neutral' : '' %>"><%= rule.severity %></span></li>
+        <% end %>
+      </ul>
+    </section>
+  </main>
+
+  <div class="demo-banner demo-banner--bottom" role="status">
+    <strong>FICTIONAL DEMO / ILLUSTRATIVE DATA</strong>
+    <span>Sellora M2 foundation — not a live merchant dashboard.</span>
+  </div>
+</div>

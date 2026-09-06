@@ -2,6 +2,10 @@ Rails.application.routes.draw do
   root "marketing#show"
   resources :pilot_requests, only: :create
 
+  # M2 fictional in-app demo (not marketing). Open / session-free for foundation.
+  get "demo", to: "demo#show", as: :demo
+  get "app", to: "demo#show", as: :app_demo
+
   # Shopify OAuth (Phase A — M3 foundation). Marketing routes stay untouched above.
   get "shopify", to: "shopify/app#show", as: :shopify_embedded_app
   get "shopify/app", to: "shopify/app#show"

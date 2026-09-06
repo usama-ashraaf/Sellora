@@ -6,13 +6,17 @@ class Shop < ApplicationRecord
   # Offline Admin API token — encrypted at rest via Active Record encryption.
   encrypts :access_token
 
+  belongs_to :account, optional: true
   has_many :catalog_products, dependent: :destroy
+  has_many :audit_findings, dependent: :destroy
+  has_many :activity_events, dependent: :nullify
 
   validates :shopify_domain, presence: true, uniqueness: true, format: { with: DOMAIN_FORMAT }
 
   before_validation :normalize_blank_access_token
 
   scope :installed, -> { where(uninstalled_at: nil).where.not(access_token: nil) }
+  scope :for_account, ->(account) { where(account_id: account.id) }
 
   def installed?
     uninstalled_at.nil? && access_token.present?

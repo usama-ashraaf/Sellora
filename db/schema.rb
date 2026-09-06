@@ -10,9 +10,78 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_06_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_06_173000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "accounts", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_accounts_on_name"
+  end
+
+  create_table "activity_events", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.datetime "created_at", null: false
+    t.string "event_name", null: false
+    t.datetime "occurred_at", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.bigint "shop_id"
+    t.string "source", default: "internal", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "occurred_at"], name: "index_activity_events_on_account_id_and_occurred_at"
+    t.index ["account_id"], name: "index_activity_events_on_account_id"
+    t.index ["event_name", "occurred_at"], name: "index_activity_events_on_event_name_and_occurred_at"
+    t.index ["shop_id", "event_name"], name: "index_activity_events_on_shop_id_and_event_name"
+    t.index ["shop_id"], name: "index_activity_events_on_shop_id"
+  end
+
+  create_table "audit_findings", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "audit_rule_id", null: false
+    t.bigint "catalog_product_id"
+    t.bigint "catalog_variant_id"
+    t.datetime "created_at", null: false
+    t.jsonb "evidence", default: {}, null: false
+    t.string "message", null: false
+    t.string "severity", null: false
+    t.bigint "shop_id", null: false
+    t.string "status", default: "open", null: false
+    t.string "suggested_action"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "shop_id", "status"], name: "index_audit_findings_on_account_id_and_shop_id_and_status"
+    t.index ["account_id"], name: "index_audit_findings_on_account_id"
+    t.index ["audit_rule_id"], name: "index_audit_findings_on_audit_rule_id"
+    t.index ["catalog_product_id"], name: "index_audit_findings_on_catalog_product_id"
+    t.index ["catalog_variant_id"], name: "index_audit_findings_on_catalog_variant_id"
+    t.index ["shop_id", "audit_rule_id"], name: "index_audit_findings_on_shop_id_and_audit_rule_id"
+    t.index ["shop_id"], name: "index_audit_findings_on_shop_id"
+  end
+
+  create_table "audit_rule_sets", force: :cascade do |t|
+    t.boolean "active", default: false, null: false
+    t.datetime "created_at", null: false
+    t.string "domain", default: "clothing", null: false
+    t.string "name", null: false
+    t.datetime "updated_at", null: false
+    t.string "version", null: false
+    t.index ["domain", "active"], name: "index_audit_rule_sets_on_domain_and_active"
+    t.index ["domain", "version"], name: "index_audit_rule_sets_on_domain_and_version", unique: true
+  end
+
+  create_table "audit_rules", force: :cascade do |t|
+    t.bigint "audit_rule_set_id", null: false
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "rule_key", null: false
+    t.string "severity", default: "medium", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["audit_rule_set_id", "rule_key"], name: "index_audit_rules_on_audit_rule_set_id_and_rule_key", unique: true
+    t.index ["audit_rule_set_id"], name: "index_audit_rules_on_audit_rule_set_id"
+  end
 
   create_table "catalog_inventory_levels", force: :cascade do |t|
     t.integer "available", default: 0, null: false
@@ -53,6 +122,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_06_160000) do
     t.index ["sku"], name: "index_catalog_variants_on_sku"
   end
 
+  create_table "memberships", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.datetime "created_at", null: false
+    t.string "email", null: false
+    t.string "role", default: "member", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["account_id", "email"], name: "index_memberships_on_account_id_and_email", unique: true
+    t.index ["account_id", "role"], name: "index_memberships_on_account_id_and_role"
+    t.index ["account_id"], name: "index_memberships_on_account_id"
+    t.index ["user_id"], name: "index_memberships_on_user_id"
+  end
+
   create_table "pilot_requests", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email", limit: 254, null: false
@@ -66,12 +148,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_06_160000) do
 
   create_table "shops", force: :cascade do |t|
     t.text "access_token"
+    t.bigint "account_id"
     t.datetime "created_at", null: false
     t.string "scope"
     t.string "shopify_domain", null: false
     t.datetime "uninstalled_at"
     t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_shops_on_account_id"
     t.index ["shopify_domain"], name: "index_shops_on_shopify_domain", unique: true
+  end
+
+  create_table "users", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "email", null: false
+    t.string "name"
+    t.datetime "updated_at", null: false
+    t.index ["email"], name: "index_users_on_email", unique: true
   end
 
   create_table "webhook_events", force: :cascade do |t|
@@ -85,7 +177,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_06_160000) do
     t.index ["shopify_domain", "topic"], name: "index_webhook_events_on_shopify_domain_and_topic"
   end
 
+  add_foreign_key "activity_events", "accounts"
+  add_foreign_key "activity_events", "shops"
+  add_foreign_key "audit_findings", "accounts"
+  add_foreign_key "audit_findings", "audit_rules"
+  add_foreign_key "audit_findings", "catalog_products"
+  add_foreign_key "audit_findings", "catalog_variants"
+  add_foreign_key "audit_findings", "shops"
+  add_foreign_key "audit_rules", "audit_rule_sets"
   add_foreign_key "catalog_inventory_levels", "catalog_variants"
   add_foreign_key "catalog_products", "shops"
   add_foreign_key "catalog_variants", "catalog_products"
+  add_foreign_key "memberships", "accounts"
+  add_foreign_key "memberships", "users"
+  add_foreign_key "shops", "accounts"
 end
