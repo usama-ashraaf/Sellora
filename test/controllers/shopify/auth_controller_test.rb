@@ -4,6 +4,10 @@ require "test_helper"
 require "openssl"
 
 class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
+  # Capture real singleton methods once so stubs cannot poison later registrar unit tests.
+  WEBHOOK_REGISTRAR_CALL = Shopify::WebhookRegistrar.method(:call)
+  WEB_PIXEL_REGISTRAR_CALL = Shopify::WebPixelRegistrar.method(:call)
+
   setup do
     ENV["SHOPIFY_CLIENT_ID"] = "test-client-id"
     ENV["SHOPIFY_API_SECRET"] = "test-shopify-secret"
@@ -15,6 +19,8 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
     ENV.delete("SHOPIFY_API_SECRET")
     ENV.delete("SHOPIFY_APP_URL")
     ENV.delete("SHOPIFY_SCOPES")
+    restore_webhook_registrar!
+    restore_web_pixel_registrar!
   end
 
   test "install redirects to Shopify authorize URL with Wave 1 scopes" do
@@ -96,6 +102,8 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
       )
     ensure
       Shopify::Oauth.define_singleton_method(:exchange_code, original)
+      restore_webhook_registrar!
+      restore_web_pixel_registrar!
     end
 
     assert_response :success
@@ -144,6 +152,8 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
       )
     ensure
       Shopify::Oauth.define_singleton_method(:exchange_code, original)
+      restore_webhook_registrar!
+      restore_web_pixel_registrar!
     end
 
     assert_response :success
@@ -354,7 +364,6 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
   private
 
   def stub_webhook_registrar!
-    @webhook_registrar_original = Shopify::WebhookRegistrar.method(:call)
     calls = []
     Shopify::WebhookRegistrar.define_singleton_method(:call) do |shop|
       calls << shop
@@ -364,14 +373,10 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
   end
 
   def restore_webhook_registrar!
-    return unless @webhook_registrar_original
-
-    Shopify::WebhookRegistrar.define_singleton_method(:call, @webhook_registrar_original)
-    @webhook_registrar_original = nil
+    Shopify::WebhookRegistrar.define_singleton_method(:call, WEBHOOK_REGISTRAR_CALL)
   end
 
   def stub_web_pixel_registrar!
-    @web_pixel_registrar_original = Shopify::WebPixelRegistrar.method(:call)
     calls = []
     Shopify::WebPixelRegistrar.define_singleton_method(:call) do |shop|
       calls << shop
@@ -381,10 +386,7 @@ class Shopify::AuthControllerTest < ActionDispatch::IntegrationTest
   end
 
   def restore_web_pixel_registrar!
-    return unless @web_pixel_registrar_original
-
-    Shopify::WebPixelRegistrar.define_singleton_method(:call, @web_pixel_registrar_original)
-    @web_pixel_registrar_original = nil
+    Shopify::WebPixelRegistrar.define_singleton_method(:call, WEB_PIXEL_REGISTRAR_CALL)
   end
 
   def signed_callback_params(shop:, code:, state:)
