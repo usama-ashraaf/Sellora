@@ -1,3 +1,42 @@
-<div class="page-heading"><div><h1>Activity</h1><p class="muted">Consent-limited storefront events received by Sellora.</p></div></div>
-<div class="grid metrics"><% { "Product views" => "product_viewed", "Cart adds" => "product_added_to_cart", "Checkouts" => "checkout_started", "Completed" => "checkout_completed" }.each do |label, event_name| %><div class="card"><div class="metric-label"><%= label %></div><div class="metric-value"><%= @commerce_signals[:funnel][event_name] %></div><div class="metric-note">Last 7 days</div></div><% end %></div>
-<section class="card"><div class="section-head"><h2>Recent storefront events</h2><span class="muted">Latest <%= @recent_events.size %></span></div><ul class="list"><% @recent_events.each do |event| %><li><div class="status-line"><strong><%= event.event_name.titleize %></strong><span class="muted"><%= time_ago_in_words(event.occurred_at) %> ago</span></div><% if event.payload["product_id"].present? %><small class="muted">Product <%= event.payload["product_id"] %></small><% end %></li><% end %><% if @recent_events.blank? %><li class="empty">No consented storefront events received.</li><% end %></ul></section>
+<div class="page-heading"><div><h1>Customer activity</h1><p class="muted">A consent-aware view of how shoppers move from product interest to checkout. Counts cover the last 7 days.</p></div></div>
+<% funnel = @commerce_signals[:funnel] %>
+<div class="grid metrics activity-metrics">
+  <% { "Product views" => "product_viewed", "Cart adds" => "product_added_to_cart", "Cart removals" => "product_removed_from_cart", "Checkout starts" => "checkout_started", "Payment steps" => "payment_info_submitted", "Completed" => "checkout_completed" }.each do |label, event_name| %>
+    <div class="card"><div class="metric-label"><%= label %></div><div class="metric-value"><%= funnel[event_name] %></div><div class="metric-note">Last 7 days</div></div>
+  <% end %>
+</div>
+<section class="card journey-summary">
+  <div class="section-head"><div><h2>Journey conversion</h2><p class="muted">Directional storefront rates; consent choices can reduce observed totals.</p></div></div>
+  <div class="funnel">
+    <div class="funnel-step"><strong><%= activity_conversion_rate(funnel["product_added_to_cart"], funnel["product_viewed"]) %></strong><span>View → cart</span></div>
+    <div class="funnel-step"><strong><%= activity_conversion_rate(funnel["checkout_started"], funnel["product_added_to_cart"]) %></strong><span>Cart → checkout</span></div>
+    <div class="funnel-step"><strong><%= activity_conversion_rate(funnel["payment_info_submitted"], funnel["checkout_started"]) %></strong><span>Checkout → payment</span></div>
+    <div class="funnel-step"><strong><%= activity_conversion_rate(funnel["checkout_completed"], funnel["checkout_started"]) %></strong><span>Checkout → completed</span></div>
+  </div>
+</section>
+<section class="card activity-feed">
+  <div class="section-head"><div><h2>Recent storefront events</h2><p class="muted">Newest first, with the product and journey context available to Sellora.</p></div><span class="badge neutral">Latest <%= @recent_events.size %></span></div>
+  <ol class="activity-list">
+    <% @recent_events.each do |event| %>
+      <% item = activity_event_presentation(event) %>
+      <li class="activity-item">
+        <div class="activity-marker" aria-hidden="true"></div>
+        <div class="activity-content">
+          <div class="activity-title"><div><span class="badge neutral"><%= item[:stage] %></span><strong><%= item[:title] %></strong></div><time datetime="<%= event.occurred_at.iso8601 %>" title="<%= l event.occurred_at, format: :long %>"><%= time_ago_in_words(event.occurred_at) %> ago</time></div>
+          <p><%= item[:explanation] %></p>
+          <% if item[:products].any? %><div class="activity-products"><span>Product</span><% item[:products].each do |product| %><%= link_to product.title, shopify_admin_product_url(@shop_record, product), target: "_top" %><% end %></div><% elsif item[:product_reference].present? %><div class="activity-products"><span>Product reference</span><code><%= item[:product_reference] %></code></div><% end %>
+          <div class="activity-facts">
+            <% if item[:sku].present? %><span><strong>SKU</strong> <%= item[:sku] %></span><% end %>
+            <% if item[:variant]&.option_summary.present? %><span><strong>Variant</strong> <%= item[:variant].option_summary %></span><% end %>
+            <% if item[:quantity].present? %><span><strong>Quantity</strong> <%= item[:quantity] %></span><% end %>
+            <% if item[:amount].present? %><span><strong>Value</strong> <%= item[:amount] %></span><% end %>
+            <% if item[:checkout_reference].present? %><span><strong>Journey reference</strong> <code><%= truncate(item[:checkout_reference], length: 24) %></code></span><% end %>
+            <span><strong>Analytics consent</strong> <%= item[:analytics_consent] ? "Granted" : "Not recorded" %></span>
+            <span><strong>Recorded</strong> <%= l event.occurred_at, format: :long %></span>
+          </div>
+        </div>
+      </li>
+    <% end %>
+    <% if @recent_events.blank? %><li class="empty">No consented storefront events received.</li><% end %>
+  </ol>
+</section>

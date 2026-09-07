@@ -35,7 +35,15 @@
   </section>
 </div>
 <section class="card" style="margin-top:1rem">
-  <div class="section-head"><div><h2>Bounded autopilot</h2><p class="muted">Disabled by default. Every run records its result and obeys these merchant limits.</p></div><span class="badge <%= @autopilot_policy.enabled? ? "warning" : "neutral" %>"><%= @autopilot_policy.enabled? ? "Enabled" : "Stopped" %></span></div>
+  <div class="section-head"><div><h2>Bounded autopilot</h2><p class="muted">Automatically applies eligible Shopify changes only after every configured safety check passes.</p></div><span class="badge <%= @autopilot_policy.enabled? ? "warning" : "neutral" %>"><%= @autopilot_policy.enabled? ? "Enabled" : "Stopped" %></span></div>
+  <div class="autopilot-explainer">
+    <div><strong>1. Finds eligible recommendations</strong><span>Only the recommendation types selected below enter a run.</span></div>
+    <div><strong>2. Checks risk limits</strong><span>Priority, evidence, cooldown, inventory, size coverage, discount cost, and margin must pass.</span></div>
+    <div><strong>3. Applies the exact action</strong><span>Eligible promotion fixes or product-specific discount codes may be written to Shopify when server writes are enabled.</span></div>
+    <div><strong>4. Records every result</strong><span>Applied and skipped counts, reasons, and timestamps remain visible in run history.</span></div>
+  </div>
+  <div class="callout"><strong>What it will not do:</strong> it does not change selling prices, launch social ads, alter inventory, or bypass your limits. Stop autopilot disables future runs immediately.</div>
+  <% unless ShopifyConfig.allow_writes? %><div class="callout autopilot-gate"><strong>Server write gate is off.</strong> Runs can evaluate recommendations, but Shopify changes cannot be applied until an operator enables the protected server setting.</div><% end %>
   <%= form_with model: @autopilot_policy, url: shopify_autopilot_policy_path, method: :patch, data: { authenticated_action: true }, class: "action-form" do |form| %>
     <%= hidden_field_tag :host, @host %>
     <label><span><%= form.check_box :enabled %> Enable bounded autopilot</span></label>
@@ -57,9 +65,9 @@
     <div class="actions"><%= form.submit "Save limits", class: "button primary" %></div>
   <% end %>
   <div class="actions">
-    <%= button_to "Run safety check now", run_shopify_autopilot_path, method: :post, params: { host: @host }, form: { data: { authenticated_action: true } }, class: "button" %>
+    <%= button_to "Run autopilot now", run_shopify_autopilot_path, method: :post, params: { host: @host }, form: { data: { authenticated_action: true } }, class: "button" %>
     <%= button_to "Stop autopilot", kill_shopify_autopilot_path, method: :post, params: { host: @host }, form: { data: { authenticated_action: true } }, class: "button danger-button" %>
   </div>
   <h3 style="margin-top:1rem">Recent runs</h3>
-  <ul class="list"><% @autopilot_runs.each do |run| %><li><strong><%= run.status.titleize %></strong> · <%= run.applied_count %> applied · <%= run.skipped_count %> skipped<br><span class="muted"><%= l run.started_at, format: :short %></span></li><% end %><% if @autopilot_runs.blank? %><li class="empty">No autopilot runs yet.</li><% end %></ul>
+  <ul class="list"><% @autopilot_runs.each do |run| %><li><strong><%= run.status.titleize %></strong> · <%= run.applied_count %> applied · <%= run.skipped_count %> skipped<br><span class="muted"><%= l run.started_at, format: :short %></span><% reasons = run.details.fetch("skip_reasons", {}) %><% if reasons.any? %><div class="run-reasons"><% reasons.each do |reason, count| %><span><%= count %> × <%= autopilot_skip_reason(reason) %></span><% end %></div><% elsif run.details["reason"].present? %><div class="run-reasons"><span><%= autopilot_skip_reason(run.details["reason"]) %></span></div><% end %></li><% end %><% if @autopilot_runs.blank? %><li class="empty">No autopilot runs yet.</li><% end %></ul>
 </section>

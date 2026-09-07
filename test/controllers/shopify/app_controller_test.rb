@@ -100,6 +100,45 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "activity section explains customer events with product and journey context" do
+    account = Account.create!(name: "Activity Dashboard")
+    shop = Shop.create!(shopify_domain: "activity-dashboard.myshopify.com", access_token: "t", account: account)
+    product = shop.catalog_products.create!(external_id: "gid://shopify/Product/123", title: "Meadow Kurti", status: "active")
+    product.catalog_variants.create!(external_id: "gid://shopify/ProductVariant/456", sku: "MK-M", option_summary: "Size: M")
+    Activity::Ingest.call(account: account, shop: shop, event_name: "product_added_to_cart", source: "web_pixel",
+                          payload: { "product_id" => "123", "variant_id" => "456", "sku" => "MK-M", "quantity" => 2,
+                                     "amount" => "4980", "currency" => "PKR",
+                                     "consent" => { "analytics_processing_allowed" => true } })
+
+    get shopify_dashboard_path, params: { section: "activity" }, headers: authorization_header(shop.shopify_domain)
+
+    assert_response :ok
+    assert_includes response.body, "Customer activity"
+    assert_includes response.body, "Journey conversion"
+    assert_includes response.body, "Product added to cart"
+    assert_includes response.body, "Meadow Kurti"
+    assert_includes response.body, "Size: M"
+    assert_includes response.body, "PKR 4980"
+    assert_includes response.body, "Analytics consent"
+  end
+
+  test "actions section explains autopilot effects safeguards and skipped reasons" do
+    account = Account.create!(name: "Autopilot Dashboard")
+    shop = Shop.create!(shopify_domain: "autopilot-dashboard.myshopify.com", access_token: "t", account: account)
+    policy = Pilot::Autopilot.ensure_policy!(shop)
+    policy.autopilot_runs.create!(account: account, shop: shop, status: "completed", started_at: Time.current,
+                                  finished_at: Time.current, skipped_count: 2,
+                                  details: { "skip_reasons" => { "inventory_below_minimum" => 2 } })
+
+    get shopify_dashboard_path, params: { section: "actions" }, headers: authorization_header(shop.shopify_domain)
+
+    assert_response :ok
+    assert_includes response.body, "Automatically applies eligible Shopify changes"
+    assert_includes response.body, "it does not change selling prices"
+    assert_includes response.body, "Run autopilot now"
+    assert_includes response.body, "2 × Inventory or size coverage was too low"
+  end
+
   test "embed home tolerates missing shopify params with friendly message" do
     get shopify_embedded_app_path
     assert_response :ok

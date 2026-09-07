@@ -60,6 +60,14 @@ module Shopify
       @commerce_signals = Pilot::CommerceSignals.call(shop: shop)
       @product_signals = @commerce_signals[:products].index_by { |row| row[:product].id }
       @products = shop.catalog_products.includes(catalog_variants: :catalog_inventory_levels).order(:title)
+      @activity_products = @products.each_with_object({}) do |product, rows|
+        rows[product.external_id] = product
+        rows[product.external_id.to_s.split("/").last] = product
+      end
+      @activity_variants = @products.flat_map(&:catalog_variants).each_with_object({}) do |variant, rows|
+        rows[variant.external_id] = variant
+        rows[variant.external_id.to_s.split("/").last] = variant
+      end
       @orders = shop.commerce_orders.includes(:commerce_order_lines).order(processed_at: :desc).limit(50)
       @recent_events = shop.activity_events.where(source: "web_pixel").order(occurred_at: :desc).limit(50)
       @pilot_ops = {
