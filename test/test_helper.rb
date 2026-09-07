@@ -10,6 +10,12 @@ module ActiveSupport
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all
 
-    # Add more helper methods to be used by all tests here...
+    def with_singleton_stub(target, method_name, replacement)
+      original = target.method(method_name)
+      target.singleton_class.define_method(method_name, replacement)
+      yield
+    ensure
+      target.singleton_class.define_method(method_name, original)
+    end
   end
 end

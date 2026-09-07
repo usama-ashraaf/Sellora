@@ -1,0 +1,44 @@
+<article class="recommendation <%= recommendation_badge_class(recommendation.priority) %>">
+  <div class="recommendation-top">
+    <div>
+      <span class="badge <%= recommendation_badge_class(recommendation.priority) %>"><%= recommendation.priority %></span>
+      <h3 style="margin-top:.45rem"><%= recommendation.title %></h3>
+      <% if recommendation.catalog_product %><p class="muted"><%= recommendation.catalog_product.title %></p><% end %>
+    </div>
+    <span class="muted"><%= recommendation.status.titleize %></span>
+  </div>
+  <p class="recommendation-copy"><%= recommendation.rationale %></p>
+  <% if recommendation.suggested_action.present? %><div class="next-step"><strong><%= recommendation_action_label(recommendation) %></strong><%= recommendation.suggested_action %></div><% end %>
+
+  <% if recommendation.catalog_product %>
+    <details class="action-builder">
+      <summary>Prepare a Shopify change</summary>
+      <%= form_with url: shopify_actions_path, method: :post, data: { authenticated_action: true }, class: "action-form" do %>
+        <%= hidden_field_tag :recommendation_id, recommendation.id %>
+        <%= hidden_field_tag :host, @host %>
+        <% if recommendation.kind == "promotion_opportunity" %>
+          <div class="field-grid">
+            <label>Discount code<%= text_field_tag "change[code]", "SELLORA#{recommendation.catalog_product.external_id.split('/').last.last(6)}", maxlength: 40, required: true %></label>
+            <label>Percentage off<%= number_field_tag "change[percentage]", 10, min: 1, max: 80, required: true %></label>
+            <label>Starts<%= datetime_local_field_tag "change[starts_at]", Time.current.strftime("%Y-%m-%dT%H:%M"), required: true %></label>
+            <label>Ends<%= datetime_local_field_tag "change[ends_at]", 7.days.from_now.strftime("%Y-%m-%dT%H:%M"), required: true %></label>
+          </div>
+          <p class="form-help">Creates a product-specific code. The exact code, percentage, dates, and product are reviewed again before Shopify is changed.</p>
+        <% elsif recommendation.kind == "promotion_accuracy" && recommendation.audit_finding&.catalog_variant %>
+          <p>Prepare a change that clears the invalid compare-at price on <strong><%= recommendation.audit_finding.catalog_variant.sku || recommendation.audit_finding.catalog_variant.title %></strong>. The selling price remains unchanged.</p>
+        <% else %>
+          <label>Product title<%= text_field_tag "change[title]", recommendation.catalog_product.title, maxlength: 255 %></label>
+          <label>Verified product description<%= text_area_tag "change[description_html]", recommendation.catalog_product.raw_attrs["description_html"], rows: 5, placeholder: "Enter only product details you have verified." %></label>
+          <p class="form-help">Change the title or description. Sellora will show the exact before and after values before applying them.</p>
+        <% end %>
+        <button class="button primary" type="submit">Prepare for review</button>
+      <% end %>
+    </details>
+  <% end %>
+
+  <div class="actions">
+    <% if recommendation.catalog_product %><%= link_to "Edit product in Shopify ↗", shopify_admin_product_url(@shop_record, recommendation.catalog_product), class: "button", target: "_top" %><% end %>
+    <% if recommendation.kind.in?(%w[promotion_opportunity promotion_accuracy]) %><%= link_to "Review discounts ↗", shopify_admin_url(@shop_record, "discounts"), class: "button", target: "_top" %><% end %>
+    <%= link_to "Inspect orders ↗", shopify_admin_url(@shop_record, "orders"), class: "button", target: "_top" %>
+  </div>
+</article>

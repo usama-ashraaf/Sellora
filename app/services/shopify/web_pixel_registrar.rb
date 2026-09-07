@@ -58,9 +58,7 @@ module Shopify
     end
 
     def self.settings_for(shop)
-      account_id = shop.account_id.presence || shop.id
       {
-        "accountID" => account_id.to_s,
         "shopDomain" => shop.shopify_domain,
         "ingestToken" => Activity::PixelToken.issue(shop),
         "ingestUrl" => ingest_url

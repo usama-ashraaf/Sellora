@@ -6,6 +6,8 @@ module Shopify
   class AppController < ActionController::Base
     include Shopify::EmbeddedFrameHeaders
 
+    SECTIONS = %w[overview recommendations products orders activity actions].freeze
+
     protect_from_forgery with: :exception
     layout "shopify_embedded"
 
@@ -19,6 +21,7 @@ module Shopify
       @phase_a_scopes = ShopifyConfig::PHASE_A_SCOPES # back-compat for any partials
       @app_url = ShopifyConfig.app_url
       @client_id = ShopifyConfig.client_id
+      @section = params[:section].presence_in(SECTIONS) || "overview"
       load_pilot_ops! if @shop_record&.installed?
     end
 
@@ -33,10 +36,15 @@ module Shopify
     def load_pilot_ops!
       shop = @shop_record
       @open_findings_count = shop.audit_findings.open_findings.count
-      @recommendations = shop.recommendations.open_items.by_priority.limit(8)
-      @pending_actions = shop.reviewed_actions.where(status: %w[pending_approval approved]).order(created_at: :desc).limit(5)
-      @action_history = shop.reviewed_actions.history.limit(5)
+      @recommendations = shop.recommendations.open_items.includes(:catalog_product).by_priority.limit(50)
+      @pending_actions = shop.reviewed_actions.includes(:recommendation).where(status: %w[pending_approval approved]).order(created_at: :desc).limit(20)
+      @action_history = shop.reviewed_actions.includes(:recommendation).history.limit(20)
       @autopilot_policy = Pilot::Autopilot.ensure_policy!(shop)
+      @commerce_signals = Pilot::CommerceSignals.call(shop: shop)
+      @product_signals = @commerce_signals[:products].index_by { |row| row[:product].id }
+      @products = shop.catalog_products.includes(catalog_variants: :catalog_inventory_levels).order(:title)
+      @orders = shop.commerce_orders.includes(:commerce_order_lines).order(processed_at: :desc).limit(50)
+      @recent_events = shop.activity_events.where(source: "web_pixel").order(occurred_at: :desc).limit(50)
       @pilot_ops = {
         last_discovered_at: shop.last_discovered_at,
         last_audited_at: shop.last_audited_at,

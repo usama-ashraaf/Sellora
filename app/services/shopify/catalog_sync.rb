@@ -73,9 +73,16 @@ module Shopify
       product.title = node["title"].presence || "Untitled"
       product.handle = node["handle"]
       product.status = normalize_status(node["status"])
+      variant_prices = Array(node.dig("variants", "nodes")).to_h do |variant|
+        [ variant.fetch("id"), { "price" => variant["price"], "compare_at_price" => variant["compareAtPrice"] } ]
+      end
+      description_html = node["descriptionHtml"].to_s
       product.raw_attrs = {
         "platform" => "shopify",
-        "status" => node["status"]
+        "status" => node["status"],
+        "description_html" => description_html,
+        "description" => ActionView::Base.full_sanitizer.sanitize(description_html),
+        "variant_prices" => variant_prices
       }
       product.save!
 

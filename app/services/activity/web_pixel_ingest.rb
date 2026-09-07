@@ -12,6 +12,10 @@ module Activity
       page_viewed
       product_viewed
       product_added_to_cart
+      product_removed_from_cart
+      checkout_started
+      payment_info_submitted
+      checkout_completed
     ].freeze
 
     def self.call(shop_domain:, event_name:, consent:, occurred_at: Time.current, payload: {})
@@ -109,9 +113,30 @@ module Activity
     def sanitize_payload(raw)
       return {} unless raw.is_a?(Hash)
 
-      raw.stringify_keys.slice("id", "name", "product_id", "variant_id").each_with_object({}) do |(key, value), safe|
-        safe[key] = value.to_s.first(255) if value.is_a?(String) || value.is_a?(Numeric)
+      input = raw.stringify_keys
+      safe = input.slice(
+        "id", "name", "product_id", "variant_id", "sku", "checkout_token", "order_id", "amount", "currency"
+      ).each_with_object({}) do |(key, value), result|
+        result[key] = value.to_s.first(255) if value.is_a?(String) || value.is_a?(Numeric)
       end
+      safe["quantity"] = bounded_quantity(input["quantity"]) if input.key?("quantity")
+      safe["line_items"] = Array(input["line_items"]).first(25).filter_map { |line| sanitize_line_item(line) } if input["line_items"].is_a?(Array)
+      safe
+    end
+
+    def sanitize_line_item(raw)
+      return unless raw.is_a?(Hash)
+
+      input = raw.stringify_keys
+      safe = input.slice("product_id", "variant_id", "sku").each_with_object({}) do |(key, value), result|
+        result[key] = value.to_s.first(255) if value.is_a?(String) || value.is_a?(Numeric)
+      end
+      safe["quantity"] = bounded_quantity(input["quantity"]) if input.key?("quantity")
+      safe.presence
+    end
+
+    def bounded_quantity(value)
+      value.to_i.clamp(0, 10_000)
     end
   end
 end

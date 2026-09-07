@@ -121,7 +121,7 @@ namespace :sellora do
     end
   end
 
-  desc "M4 discovery for one shop: catalog sync → audit → recommendations"
+  desc "M4 discovery for one shop: catalog + order sync → audit → recommendations"
   task :discover, [ :shop_domain ] => :environment do |_t, args|
     domain = Shop.normalize_domain(args[:shop_domain])
     abort "Usage: bin/rails sellora:discover[shop-domain.myshopify.com]" if domain.blank?
@@ -130,7 +130,7 @@ namespace :sellora do
     abort "Shop #{domain} is not installed" unless shop.installed?
 
     result = Pilot::Discover.call(shop: shop, sync: true)
-    puts "Discover shop_id=#{result[:shop_id]} products=#{result[:sync][:products]} findings=#{result[:audit_findings]} skipped=#{result[:audit_skipped]} recommendations=#{result[:recommendations]}"
+    puts "Discover shop_id=#{result[:shop_id]} products=#{result[:sync][:products]} orders=#{result[:order_sync][:orders]} findings=#{result[:audit_findings]} skipped=#{result[:audit_skipped]} recommendations=#{result[:recommendations]}"
   end
 
   desc "M4 discovery for every installed shop (enqueue jobs)"

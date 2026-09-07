@@ -65,17 +65,19 @@ class WebPixels::EventsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 0, ActivityEvent.where(source: "web_pixel").count
   end
 
-  test "unprocessable for unsupported event" do
+  test "accepts checkout event" do
     post "/web_pixels/events",
          params: {
            shop_domain: @shop.shopify_domain,
            event_name: "checkout_completed",
-           consent: { analytics_processing_allowed: true }
+           consent: { analytics_processing_allowed: true },
+           payload: { line_items: [ { product_id: "gid://shopify/Product/1", quantity: 1 } ] }
          }.to_json,
          headers: {
            "CONTENT_TYPE" => "application/json",
            "X-Sellora-Pixel-Secret" => @secret
          }
-    assert_response :unprocessable_entity
+    assert_response :created
+    assert_equal "gid://shopify/Product/1", ActivityEvent.last.payload.dig("line_items", 0, "product_id")
   end
 end

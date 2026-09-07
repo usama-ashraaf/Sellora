@@ -1,14 +1,14 @@
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration
 name = "Sellora"
 client_id = "7d912d414ddbffe0c1ff644b418efcf9"
-application_url = "https://8abccc0ed1b636.lhr.life/shopify"
+application_url = "https://decreased-spec-bulletin-taste.trycloudflare.com/shopify"
 embedded = true
 
 [access_scopes]
-scopes = "read_products,read_inventory,read_locations,write_pixels,read_customer_events,read_orders"
+scopes = "read_products,read_inventory,read_locations,write_pixels,read_customer_events,read_orders,write_products,write_discounts"
 
 [auth]
-redirect_urls = [ "https://8abccc0ed1b636.lhr.life/auth/shopify/callback" ]
+redirect_urls = [ "https://decreased-spec-bulletin-taste.trycloudflare.com/auth/shopify/callback" ]
 
 [webhooks]
 api_version = "2025-10"

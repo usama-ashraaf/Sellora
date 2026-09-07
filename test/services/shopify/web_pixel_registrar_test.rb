@@ -36,7 +36,7 @@ class Shopify::WebPixelRegistrarTest < ActiveSupport::TestCase
       assert_equal :created, result[:status]
       assert_equal "gid://shopify/WebPixel/1", result[:id]
       assert_equal desired, result[:settings]
-      assert_equal @account.id.to_s, result[:settings]["accountID"]
+      assert_not_includes result[:settings], "accountID"
       assert_equal @shop.shopify_domain, result[:settings]["shopDomain"]
       assert_equal "https://tunnel.example/web_pixels/events", result[:settings]["ingestUrl"]
       assert_equal Activity::PixelToken.issue(@shop), result[:settings]["ingestToken"]
@@ -62,7 +62,7 @@ class Shopify::WebPixelRegistrarTest < ActiveSupport::TestCase
       {
         "webPixel" => {
           "id" => "gid://shopify/WebPixel/2",
-          "settings" => { "accountID" => @account.id.to_s, "ingestUrl" => "https://old.example/web_pixels/events" }
+          "settings" => { "ingestUrl" => "https://old.example/web_pixels/events" }
         }
       },
       {
@@ -117,7 +117,7 @@ class Shopify::WebPixelRegistrarTest < ActiveSupport::TestCase
     end
   end
 
-  test "settings_for falls back to shop id when account_id nil" do
+  test "settings never expose account identifiers" do
     orphan = Shop.create!(
       shopify_domain: "orphan.myshopify.com",
       access_token: "shpat_orphan",
@@ -126,7 +126,8 @@ class Shopify::WebPixelRegistrarTest < ActiveSupport::TestCase
     )
     orphan.update_columns(account_id: nil)
     settings = Shopify::WebPixelRegistrar.settings_for(orphan)
-    assert_equal orphan.id.to_s, settings["accountID"]
+    assert_not_includes settings, "accountID"
+    assert_equal orphan.shopify_domain, settings["shopDomain"]
   end
 
   private

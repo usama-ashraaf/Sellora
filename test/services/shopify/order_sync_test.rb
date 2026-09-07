@@ -25,6 +25,7 @@ class Shopify::OrderSyncTest < ActiveSupport::TestCase
               "currencyCode" => "PKR",
               "displayFinancialStatus" => "PAID",
               "displayFulfillmentStatus" => "UNFULFILLED",
+              "paymentGatewayNames" => [ "Cash on Delivery (COD)" ],
               "cancelReason" => nil,
               "cancelledAt" => nil,
               "processedAt" => "2026-09-07T10:00:00Z",
@@ -61,6 +62,7 @@ class Shopify::OrderSyncTest < ActiveSupport::TestCase
     assert_equal "PKR", order.currency
     assert_equal "paid", order.financial_status
     assert_equal BigDecimal("2500.00"), order.total_price
+    assert_equal [ "Cash on Delivery (COD)" ], order.raw_attrs["payment_gateway_names"]
     assert_equal 1, order.commerce_order_lines.count
     line = order.commerce_order_lines.first
     assert_equal "SF-KURTA-M", line.sku

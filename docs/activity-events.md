@@ -50,17 +50,21 @@ Activity::WebPixelIngest.call(
   event_name: "product_viewed",
   consent: { "analytics_processing_allowed" => true, "marketing_allowed" => true },
   occurred_at: Time.current,
-  payload: { "id" => "evt-1" }
+  payload: {
+    "id" => "evt-1",
+    "product_id" => "gid://shopify/Product/1",
+    "variant_id" => "gid://shopify/ProductVariant/2"
+  }
 )
 ```
 
 - Missing or non-true analytics consent → `Activity::WebPixelIngest::ConsentDenied` (no row).
 - HTTP: `POST /web_pixels/events` with `X-Sellora-Pixel-Token` (browser) or `X-Sellora-Pixel-Secret` (server/test) — see [web-pixel.md](./web-pixel.md).
-- Allowed Wave 1 names: `page_viewed`, `product_viewed`, `product_added_to_cart`.
+- Allowed names: `page_viewed`, `product_viewed`, `product_added_to_cart`, `product_removed_from_cart`, `checkout_started`, `payment_info_submitted`, `checkout_completed`.
 
-## Phase A note
+## Commerce outcome note
 
-Shopify Phase A scopes only. Order / checkout payloads are out of scope until Phase B `read_orders`. Web pixel storefront events use `source: "web_pixel"` via the consent-aware path above.
+Web pixel events use `source: "web_pixel"` via the consent-aware path above. Shopify Admin order sync is authoritative for payment, cancellation, refund, fulfillment and gateway status. COD collection requires courier or ERP evidence and is not inferred from a checkout event or gateway name.
 
 ## Privacy
 

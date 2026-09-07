@@ -1,6 +1,6 @@
-# Supported Web Pixel (consent-aware) — M3 lean stub
+# Supported Web Pixel and commerce signals (consent-aware)
 
-Storefront behavioral events via a Shopify **Web Pixel Extension**, gated on customer privacy consent. Wave 1 OAuth includes Phase A catalog reads **plus** pixel scopes (`write_pixels`, `read_customer_events`). Order/checkout events stay Phase B (`read_orders` parked).
+Storefront behavioral events flow through a Shopify **Web Pixel Extension**, gated on customer privacy consent. Shopify Admin order sync and order webhooks supply server-side payment, cancellation, refund, fulfillment and payment-gateway outcomes.
 
 ## What landed
 
@@ -20,15 +20,19 @@ Storefront behavioral events via a Shopify **Web Pixel Extension**, gated on cus
 2. **Pixel JS** — `mayFire()` in `src/consent.js` requires `analyticsProcessingAllowed === true` before subscribe handlers POST. Missing/false → no fire.
 3. **Rails ingest** — `Activity::WebPixelIngest` rejects (no row) when consent flags are missing or analytics is not true. Controller returns `403` for consent denial, `401` for bad/missing auth.
 
-Marketing-only events are not subscribed in Wave 1; product/page view and add-to-cart require analytics.
+All subscribed events require analytics consent. The pixel deliberately omits customer contact, address and payment details.
 
-## Allowed event names (Wave 1)
+## Allowed event names
 
 - `page_viewed`
 - `product_viewed`
 - `product_added_to_cart`
+- `product_removed_from_cart`
+- `checkout_started`
+- `payment_info_submitted`
+- `checkout_completed`
 
-Checkout / purchase / order topics are **out of scope** until Phase B `read_orders`.
+Product and cart payloads include Shopify product and variant GIDs. Checkout payloads contain only a checkout token, optional order GID, total money, and up to 25 sanitized product lines. Payment, cancellation, refund, fulfillment and COD gateway outcomes come from `Shopify::OrderSync`, not from browser claims.
 
 ## Pixel scopes — approved and enabled (Wave 1)
 
@@ -45,7 +49,7 @@ The storefront must not hold Admin API credentials or `WEB_PIXEL_INGEST_SECRET`.
 - Token claims bind `shop_id` + `installation` timestamp (`shops.updated_at`).
 - Reinstall / token wipe (`mark_uninstalled!` / re-OAuth that bumps `updated_at`) invalidates old tokens.
 - Resolve requires an installed shop with `account_id`.
-- Caller-supplied `account_id` / mismatched `shop_domain` are ignored or rejected; shop comes from the token.
+- Caller-supplied account identifiers are not accepted. A mismatched `shop_domain` is rejected; the account and shop come from the signed token.
 - Capability is event submission only — not reads, orders, billing, or merchant actions.
 
 Optional `X-Sellora-Pixel-Secret` remains for server-side / integration tests only.
@@ -77,7 +81,6 @@ The registrar is **idempotent**: queries `webPixel`, creates via `webPixelCreate
 
 ```json
 {
-  "accountID": "<account_id or shop_id>",
   "shopDomain": "<canonical-shop>.myshopify.com",
   "ingestToken": "<Activity::PixelToken for this installation>",
   "ingestUrl": "https://<SHOPIFY_APP_URL>/web_pixels/events"
@@ -93,7 +96,7 @@ Manual GraphQL (if needed):
 ```graphql
 mutation {
   webPixelCreate(webPixel: {
-    settings: "{\"accountID\":\"<account-or-shop-id>\",\"shopDomain\":\"<canonical-shop>.myshopify.com\",\"ingestToken\":\"<token>\",\"ingestUrl\":\"https://<public-host>/web_pixels/events\"}"
+    settings: "{\"shopDomain\":\"<canonical-shop>.myshopify.com\",\"ingestToken\":\"<token>\",\"ingestUrl\":\"https://<public-host>/web_pixels/events\"}"
   }) {
     webPixel { id settings }
     userErrors { field message }
@@ -119,15 +122,15 @@ Existing installs granted Phase-A-only scopes must re-OAuth so the offline token
 3. Approve the consent screen (pixel scopes appear).
 4. Confirm `shops.scope` includes the pixel pair; then `sellora:register_web_pixel_all` if OAuth-time registration was skipped/failed.
 
-## Incomplete coverage (blockers)
+## Operational requirements and limits
 
 | Blocker | Impact |
 |---------|--------|
 | Partner Dev Dashboard scopes out of sync | OAuth may not grant pixel pair until Eng saves scopes in browser |
 | Extension not deployed (`shopify app deploy`) | `webPixelCreate` fails: “No web pixel was found for this app” |
 | Public HTTPS App URL / tunnel | Required for real storefront hits and Admin embed |
-| Checkout / order pixel events | Deferred with Phase B orders |
 | Cookie-banner edge cases | Shopify may not load the pixel at all when required purposes are denied; JS gate is defense-in-depth |
+| COD collection | A COD gateway label is not proof of delivery or cash remittance; connect courier or ERP data for that claim |
 
 ## Example ingest payload (browser)
 
@@ -140,13 +143,21 @@ Existing installs granted Phase-A-only scopes must re-OAuth so the offline token
     "analytics_processing_allowed": true,
     "marketing_allowed": true
   },
-  "payload": { "id": "evt-1", "name": "product_viewed" }
+  "payload": {
+    "id": "evt-1",
+    "name": "product_viewed",
+    "product_id": "gid://shopify/Product/1",
+    "variant_id": "gid://shopify/ProductVariant/2",
+    "sku": "SF-KURTA-M",
+    "amount": "2490.00",
+    "currency": "PKR"
+  }
 }
 ```
 
 Header: `X-Sellora-Pixel-Token: <ingestToken from web pixel settings>`
 
-Payload keys are allowlisted (`id`, `name`, `product_id`, `variant_id`); personal data and nested secrets are dropped.
+Payload keys are allowlisted. Checkout line items retain only product ID, variant ID, SKU and quantity. Personal data and unrecognized nested values are dropped.
 
 ## Related
 

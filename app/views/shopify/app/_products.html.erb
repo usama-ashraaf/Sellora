@@ -1,0 +1,4 @@
+<div class="page-heading"><div><h1>Products</h1><p class="muted">Catalog health and customer signals by product.</p></div><%= link_to "Manage all products ↗", shopify_admin_url(@shop_record, "products"), class: "button primary", target: "_top" %></div>
+<section class="card table-wrap"><table><thead><tr><th>Product</th><th>Inventory</th><th>Views</th><th>Cart adds</th><th>Paid orders</th><th></th></tr></thead><tbody>
+  <% @products.each do |product| %><% row = @product_signals[product.id] %><tr><td><strong><%= product.title %></strong><br><span class="muted"><%= product.status.titleize %> · <%= product.catalog_variants.size %> variants</span></td><td><%= row[:inventory] %></td><td><%= row[:product_viewed] %></td><td><%= row[:product_added_to_cart] %></td><td><%= row[:paid_orders] %></td><td><%= link_to "Edit ↗", shopify_admin_product_url(@shop_record, product), class: "button", target: "_top" %></td></tr><% end %>
+</tbody></table></section>

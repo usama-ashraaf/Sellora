@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
 module Pilot
-  # Builds read-only recommendations from open findings + simple activity/order signals (M4).
+  # Builds read-only recommendations from open findings + product-level commerce signals (M4).
   class Recommendations
+    SIGNAL_KINDS = %w[traffic_intent conversion_review promotion_opportunity].freeze
+    MIN_PRODUCT_VIEWS = 5
     def self.call(shop:)
       new(shop: shop).call
     end
@@ -19,7 +21,7 @@ module Pilot
       @shop.audit_findings.open_findings.includes(:audit_rule, :catalog_product).find_each do |finding|
         rows << upsert_from_finding!(finding)
       end
-      rows.concat(traffic_intent_rows!)
+      rows.concat(signal_rows!)
       @shop.update_columns(last_recommendation_at: Time.current)
       rows
     end
@@ -53,28 +55,66 @@ module Pilot
       end
     end
 
-    # High views with no cart signal — investigation only, not a demand conclusion.
-    def traffic_intent_rows!
-      since = 7.days.ago
-      views = @shop.activity_events.where(event_name: "product_viewed").where("occurred_at >= ?", since).count
-      carts = @shop.activity_events.where(event_name: "product_added_to_cart").where("occurred_at >= ?", since).count
-      return [] unless views >= 10 && carts.zero?
+    def signal_rows!
+      active = Pilot::CommerceSignals.call(shop: @shop)[:products].filter_map do |signals|
+        kind = signal_kind(signals)
+        next unless kind
 
+        upsert_signal!(signals, kind)
+      end
+      stale = @shop.recommendations.open_items.where(kind: SIGNAL_KINDS).where.not(id: active.map(&:id))
+      stale.update_all(status: "dismissed", updated_at: Time.current)
+      active
+    end
+
+    def signal_kind(signals)
+      return if signals[:product_viewed] < MIN_PRODUCT_VIEWS
+      return "traffic_intent" if signals[:product_added_to_cart].zero?
+      return "promotion_opportunity" if signals[:paid_orders].positive? && signals[:inventory].positive? &&
+                                        signals[:cancelled_orders].zero? && signals[:refunded_orders].zero?
+      "conversion_review" if signals[:paid_orders].zero?
+    end
+
+    def upsert_signal!(signals, kind)
       rec = Recommendation.find_or_initialize_by(
         shop_id: @shop.id,
+        catalog_product_id: signals[:product].id,
         audit_finding_id: nil,
-        kind: "traffic_intent"
+        kind: kind
       )
       rec.account = @account
-      rec.priority = "medium"
+      rec.priority = kind == "promotion_opportunity" ? "high" : "medium"
       rec.status = "open"
-      rec.title = "Views without cart activity (7d)"
-      rec.rationale = "Saw #{views} product_viewed and #{carts} product_added_to_cart events in 7 days. " \
-                      "This warrants investigation — it is not proof of low demand or a single cause."
-      rec.suggested_action = "Review product pages, size availability, and consent-limited tracking gaps with the team."
-      rec.evidence = { "views" => views, "carts" => carts, "window_days" => 7, "limitation" => "pixel incomplete" }
+      rec.catalog_product = signals[:product]
+      rec.title, rec.rationale, rec.suggested_action = recommendation_copy(signals, kind)
+      rec.evidence = signal_evidence(signals)
       rec.save!
-      [ rec ]
+      rec
+    end
+
+    def recommendation_copy(signals, kind)
+      counts = "#{signals[:product_viewed]} views, #{signals[:product_added_to_cart]} cart adds, " \
+               "#{signals[:checkout_completed]} tracked checkouts, and #{signals[:paid_orders]} paid orders in the available windows."
+      case kind
+      when "promotion_opportunity"
+        [ "Promotion candidate: #{signals[:title]}", counts,
+          "Review margin and campaign fit, then consider promoting this in-stock product. No campaign is changed automatically." ]
+      when "conversion_review"
+        [ "Cart interest without a paid order: #{signals[:title]}", counts,
+          "Review price, shipping, checkout friction, and tracking coverage before changing the promotion." ]
+      else
+        [ "Views without cart activity: #{signals[:title]}", counts,
+          "Review this product page, offer, size availability, and consent-limited tracking gaps." ]
+      end
+    end
+
+    def signal_evidence(signals)
+      signals.except(:product, :order_ids, :paid_revenue).transform_keys(&:to_s).merge(
+        "paid_revenue" => signals[:paid_revenue].to_s,
+        "storefront_window_days" => 7,
+        "orders_window_days" => 30,
+        "limitation" => "storefront events are consent-limited; revenue is not profit; COD collection is not verified"
+      )
     end
   end
 end

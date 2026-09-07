@@ -6,8 +6,8 @@ module Pilot
     Error = Class.new(StandardError)
     Conflict = Class.new(Error)
 
-    def self.propose!(recommendation:, actor_email: nil)
-      new(recommendation.shop).propose!(recommendation: recommendation, actor_email: actor_email)
+    def self.propose!(recommendation:, attributes: {}, actor_email: nil)
+      new(recommendation.shop).propose!(recommendation: recommendation, attributes: attributes, actor_email: actor_email)
     end
 
     def self.approve!(action, actor_email: nil)
@@ -27,21 +27,25 @@ module Pilot
       raise Error, "shop has no account" if shop.account.blank?
     end
 
-    def propose!(recommendation:, actor_email: nil)
+    def propose!(recommendation:, attributes: {}, actor_email: nil)
       raise Error, "recommendation closed" unless recommendation.status.in?(%w[open acknowledged proposed])
+
+      existing = recommendation.reviewed_actions.pending.order(created_at: :desc).first
+      return existing if existing
 
       product = recommendation.catalog_product
       before = snapshot_for(product)
+      after = ActionPayload.build(recommendation: recommendation, attributes: attributes)
       action = ReviewedAction.create!(
         account: @shop.account,
         shop: @shop,
         recommendation: recommendation,
         audit_finding: recommendation.audit_finding,
-        action_kind: recommendation.kind,
+        action_kind: after.fetch("operation"),
         status: "pending_approval",
         actor_email: actor_email,
         before_snapshot: before,
-        after_snapshot: proposed_after(recommendation, before),
+        after_snapshot: after,
         source_fingerprint: product&.content_fingerprint
       )
       recommendation.update!(status: "proposed")
@@ -67,32 +71,25 @@ module Pilot
       raise Error, "must be approved" unless action.approved?
 
       detect_conflict!(action)
-      # Wave 1: record execution without silent Admin writes. Real writes need write_products + explicit allow.
-      if write_allowed?
-        result = Shopify::ProductPatch.apply(shop: @shop, action: action)
-        action.update!(
-          status: "applied",
-          applied_at: Time.current,
-          actor_email: actor_email.presence || action.actor_email,
-          result_message: result[:message],
-          after_snapshot: result[:after] || action.after_snapshot
-        )
-      else
-        action.update!(
-          status: "applied",
-          applied_at: Time.current,
-          actor_email: actor_email.presence || action.actor_email,
-          result_message: "Recorded as applied locally (Shopify write not enabled). " \
-                          "Set SELLORA_ALLOW_WRITES=true and grant write_products to push source changes."
-        )
-      end
+      result = Shopify::ActionExecutor.apply(shop: @shop, action: action)
+      action.update!(
+        status: "applied",
+        applied_at: Time.current,
+        actor_email: actor_email.presence || action.actor_email,
+        result_message: result.fetch(:message),
+        after_snapshot: result[:after] || action.after_snapshot
+      )
       action.audit_finding&.update!(status: "resolved")
+      action.recommendation&.update!(status: "dismissed")
       action
     rescue Conflict
       raise
     rescue StandardError => e
       action.update!(status: "failed", failed_at: Time.current, result_message: e.message)
-      raise
+      action.recommendation&.update!(status: "open")
+      raise e if e.is_a?(Error)
+
+      raise Error, e.message
     end
 
     private
@@ -118,18 +115,6 @@ module Pilot
         "fingerprint" => product.content_fingerprint,
         "raw_attrs" => product.raw_attrs
       }
-    end
-
-    def proposed_after(recommendation, before)
-      before.merge(
-        "proposed_action" => recommendation.suggested_action,
-        "note" => "Preview only until approved and applied. Team must verify facts."
-      )
-    end
-
-    def write_allowed?
-      ENV["SELLORA_ALLOW_WRITES"].to_s == "true" &&
-        @shop.scope.to_s.split(",").map(&:strip).include?("write_products")
     end
   end
 end

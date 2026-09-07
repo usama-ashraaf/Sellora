@@ -70,11 +70,34 @@ class Activity::WebPixelIngestTest < ActiveSupport::TestCase
     assert_equal 0, ActivityEvent.where(source: "web_pixel").count
   end
 
-  test "rejects unsupported event names" do
+  test "accepts checkout events and sanitizes product lines" do
+    event = Activity::WebPixelIngest.call(
+      shop_domain: "pixel.myshopify.com",
+      event_name: "checkout_completed",
+      consent: { "analytics_processing_allowed" => true },
+      payload: {
+        "checkout_token" => "safe-checkout", "order_id" => "gid://shopify/Order/1",
+        "line_items" => [
+          { "product_id" => "gid://shopify/Product/1", "variant_id" => "gid://shopify/ProductVariant/2",
+            "sku" => "SKU-2", "quantity" => 2, "email" => "private@example.com" }
+        ],
+        "email" => "private@example.com"
+      }
+    )
+
+    assert_equal "checkout_completed", event.event_name
+    assert_equal "safe-checkout", event.payload["checkout_token"]
+    assert_equal "gid://shopify/Product/1", event.payload.dig("line_items", 0, "product_id")
+    assert_equal 2, event.payload.dig("line_items", 0, "quantity")
+    assert_nil event.payload["email"]
+    assert_nil event.payload.dig("line_items", 0, "email")
+  end
+
+  test "rejects events outside the commerce allowlist" do
     err = assert_raises(Activity::WebPixelIngest::Error) do
       Activity::WebPixelIngest.call(
         shop_domain: "pixel.myshopify.com",
-        event_name: "checkout_completed",
+        event_name: "customer_visited",
         consent: { "analytics_processing_allowed" => true }
       )
     end

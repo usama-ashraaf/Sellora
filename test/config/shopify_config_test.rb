@@ -11,9 +11,9 @@ class ShopifyConfigTest < ActiveSupport::TestCase
     assert_equal %w[read_products read_inventory read_locations], ShopifyConfig::PHASE_A_SCOPES
     assert_equal %w[write_pixels read_customer_events], ShopifyConfig::PIXEL_SCOPES
     assert_equal %w[read_orders], ShopifyConfig::PHASE_B_SCOPES
-    assert_equal %w[write_products], ShopifyConfig::PHASE_C_SCOPES
+    assert_equal %w[write_products write_discounts], ShopifyConfig::PHASE_C_SCOPES
     assert_equal(
-      %w[read_products read_inventory read_locations write_pixels read_customer_events read_orders write_products],
+      %w[read_products read_inventory read_locations write_pixels read_customer_events read_orders write_products write_discounts],
       ShopifyConfig::ALLOWED_SCOPES
     )
   end

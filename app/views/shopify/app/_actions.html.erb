@@ -1,0 +1,36 @@
+<div class="page-heading"><div><h1>Reviewed actions</h1><p class="muted">Approve exact changes, apply them to Shopify, and keep the result.</p></div></div>
+<div id="action-feedback" class="feedback" role="status" hidden></div>
+<div class="grid two-col">
+  <section class="card">
+    <div class="section-head"><h2>Awaiting review</h2><span class="badge neutral"><%= @pending_actions.size %></span></div>
+    <div class="stack">
+      <% @pending_actions.each do |action| %>
+        <article class="action-card">
+          <div class="recommendation-top"><div><strong><%= action.recommendation&.title || action.action_kind.titleize %></strong><p class="muted"><%= action.action_kind.titleize %> · <%= action.status.titleize %></p></div><span class="badge neutral"><%= action.status.titleize %></span></div>
+          <div class="change-preview">
+            <% action.after_snapshot.except("shopify_result").each do |key, value| %>
+              <div><span><%= key.humanize %></span><strong><%= value.is_a?(Array) || value.is_a?(Hash) ? JSON.generate(value) : value %></strong></div>
+            <% end %>
+          </div>
+          <div class="actions">
+            <% if action.pending_approval? %>
+              <%= button_to "Approve", approve_shopify_action_path(action), method: :post, params: { host: @host }, form: { data: { authenticated_action: true } }, class: "button primary" %>
+              <%= button_to "Reject", reject_shopify_action_path(action), method: :post, params: { host: @host }, form: { data: { authenticated_action: true } }, class: "button danger-button" %>
+            <% elsif action.approved? %>
+              <%= button_to "Apply to Shopify", apply_shopify_action_path(action), method: :post, params: { host: @host }, form: { data: { authenticated_action: true } }, class: "button primary" %>
+              <%= button_to "Reject", reject_shopify_action_path(action), method: :post, params: { host: @host }, form: { data: { authenticated_action: true } }, class: "button danger-button" %>
+            <% end %>
+          </div>
+        </article>
+      <% end %>
+      <% if @pending_actions.blank? %><div class="empty">No proposals awaiting review. Prepare one from Recommendations.</div><% end %>
+    </div>
+  </section>
+  <section class="card">
+    <div class="section-head"><h2>History</h2></div>
+    <ul class="list">
+      <% @action_history.each do |action| %><li><strong><%= action.recommendation&.title || action.action_kind.titleize %></strong><br><span class="muted"><%= action.status.titleize %> · <%= action.result_message.presence || action.conflict_reason.presence || "No result note" %></span></li><% end %>
+      <% if @action_history.blank? %><li class="empty">No completed action history.</li><% end %>
+    </ul>
+  </section>
+</div>

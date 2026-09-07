@@ -13,6 +13,7 @@ module Shopify
       return if shop.nil? || !shop.installed?
 
       OrderSync.call(shop)
+      Pilot::Recommendations.call(shop: shop)
     end
   end
 end

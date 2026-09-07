@@ -10,8 +10,8 @@ module ShopifyConfig
   # Phase B order records (M3) — financial/fulfillment labels only; not COD collection.
   PHASE_B_SCOPES = %w[read_orders].freeze
 
-  # Phase C reviewed actions (M5) — optional; still never silent-write without SELLORA_ALLOW_WRITES.
-  PHASE_C_SCOPES = %w[write_products].freeze
+  # Phase C merchant-reviewed product updates and product-specific discount codes.
+  PHASE_C_SCOPES = %w[write_products write_discounts].freeze
 
   # Hard OAuth ceiling — never accept a broader grant than this set.
   ALLOWED_SCOPES = (PHASE_A_SCOPES + PIXEL_SCOPES + PHASE_B_SCOPES + PHASE_C_SCOPES).freeze

@@ -14,22 +14,31 @@ class Pilot::ReviewedActionsTest < ActiveSupport::TestCase
     @rec = @shop.recommendations.open_items.first
   end
 
-  test "propose approve apply records local execution without silent writes" do
-    action = Pilot::ReviewedActions.propose!(recommendation: @rec, actor_email: "owner@example.com")
+  test "propose approve apply executes the reviewed payload" do
+    action = Pilot::ReviewedActions.propose!(
+      recommendation: @rec,
+      attributes: { title: "Verified Kurta" },
+      actor_email: "owner@example.com"
+    )
     assert_equal "pending_approval", action.status
     assert action.before_snapshot.present?
+    assert_equal "product_update", action.action_kind
+    assert_equal "Verified Kurta", action.after_snapshot["title"]
 
     Pilot::ReviewedActions.approve!(action, actor_email: "owner@example.com")
     assert_equal "approved", action.reload.status
 
-    ENV.delete("SELLORA_ALLOW_WRITES")
-    applied = Pilot::ReviewedActions.apply!(action)
+    result = { message: "Updated in Shopify.", after: action.after_snapshot.merge("shopify_result" => { "id" => "p1" }) }
+    applied = with_singleton_stub(Shopify::ActionExecutor, :apply, ->(shop:, action:) { result }) do
+      Pilot::ReviewedActions.apply!(action)
+    end
     assert_equal "applied", applied.status
-    assert_match(/Shopify write not enabled/, applied.result_message)
+    assert_equal "Updated in Shopify.", applied.result_message
+    assert_equal "dismissed", @rec.reload.status
   end
 
   test "detects source conflict when fingerprint drifts" do
-    action = Pilot::ReviewedActions.propose!(recommendation: @rec)
+    action = Pilot::ReviewedActions.propose!(recommendation: @rec, attributes: { title: "Verified Kurta" })
     product = @rec.catalog_product
     product.update!(title: "#{product.title} changed")
     product.update_columns(content_fingerprint: "stale-not-matching")

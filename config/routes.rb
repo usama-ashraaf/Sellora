@@ -9,6 +9,10 @@ Rails.application.routes.draw do
   # Shopify OAuth (Phase A — M3 foundation). Marketing routes stay untouched above.
   get "shopify", to: "shopify/app#show", as: :shopify_embedded_app
   get "shopify/app", to: "shopify/app#show"
+  post "shopify/actions", to: "shopify/actions#create", as: :shopify_actions
+  post "shopify/actions/:id/approve", to: "shopify/actions#approve", as: :approve_shopify_action
+  post "shopify/actions/:id/reject", to: "shopify/actions#reject", as: :reject_shopify_action
+  post "shopify/actions/:id/apply", to: "shopify/actions#apply", as: :apply_shopify_action
   get "shopify/install", to: "shopify/auth#install", as: :shopify_install
   get "auth/shopify/callback", to: "shopify/auth#callback", as: :shopify_callback
 

@@ -19,6 +19,7 @@ module Shopify
             currencyCode
             displayFinancialStatus
             displayFulfillmentStatus
+            paymentGatewayNames
             cancelReason
             cancelledAt
             processedAt
@@ -94,7 +95,8 @@ module Shopify
       order.raw_attrs = {
         "platform" => "shopify",
         "financial_status" => node["displayFinancialStatus"],
-        "fulfillment_status" => node["displayFulfillmentStatus"]
+        "fulfillment_status" => node["displayFulfillmentStatus"],
+        "payment_gateway_names" => Array(node["paymentGatewayNames"]).first(10)
       }
       order.save!
 

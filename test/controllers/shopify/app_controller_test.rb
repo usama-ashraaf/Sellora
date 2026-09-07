@@ -15,16 +15,12 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
     ENV.delete("SHOPIFY_APP_URL")
   end
 
-  test "embed home responds 200 with status body" do
+  test "embed home offers installation for a valid unconnected shop" do
     get shopify_embedded_app_path, params: { shop: "acme.myshopify.com", host: "abc" }
     assert_response :ok
     assert_includes response.body, "Sellora"
-    assert_includes response.body, "acme.myshopify.com"
-    assert_includes response.body, "read_products"
-    assert_includes response.body, "read_inventory"
-    assert_includes response.body, "read_locations"
-    assert_includes response.body, "write_pixels"
-    assert_includes response.body, "read_customer_events"
+    assert_includes response.body, "Connect Sellora"
+    assert_includes response.body, "Install or repair connection"
     assert_includes response.body, "shopifycloud/app-bridge.js"
   end
 
@@ -34,11 +30,57 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Sellora"
   end
 
+  test "installed shop dashboard displays navigation funnel and order outcomes" do
+    account = Account.create!(name: "Dashboard Merchant")
+    Shop.create!(shopify_domain: "dashboard.myshopify.com", access_token: "t", account: account)
+
+    get shopify_embedded_app_path, params: { shop: "dashboard.myshopify.com", host: "abc" }
+
+    assert_response :ok
+    assert_includes response.body, "Commerce intelligence"
+    assert_includes response.body, "Recommendations"
+    assert_includes response.body, "Products"
+    assert_includes response.body, "Orders"
+    assert_includes response.body, "Activity"
+    assert_includes response.body, "Actions"
+    assert_includes response.body, "Storefront journey · 7 days"
+    assert_includes response.body, "Order outcomes · 30 days"
+  end
+
+  test "recommendations provide real Shopify product discount and order actions" do
+    account = Account.create!(name: "Actionable Dashboard")
+    shop = Shop.create!(shopify_domain: "actionable.myshopify.com", access_token: "t", account: account)
+    product = shop.catalog_products.create!(external_id: "gid://shopify/Product/12345", title: "Meadow Kurti", status: "active")
+    shop.recommendations.create!(account: account, catalog_product: product, kind: "promotion_opportunity",
+                                 priority: "high", status: "open", title: "Promotion candidate",
+                                 rationale: "Matched interest and paid orders", suggested_action: "Review the campaign fit.")
+
+    get shopify_embedded_app_path, params: { shop: shop.shopify_domain, host: "abc", section: "recommendations" }
+
+    assert_response :ok
+    assert_includes response.body, "Edit product in Shopify"
+    assert_includes response.body, "https://admin.shopify.com/store/actionable/products/12345"
+    assert_includes response.body, "https://admin.shopify.com/store/actionable/discounts"
+    assert_includes response.body, "https://admin.shopify.com/store/actionable/orders"
+  end
+
+  test "each dashboard section renders independently" do
+    account = Account.create!(name: "Dashboard Sections")
+    shop = Shop.create!(shopify_domain: "sections.myshopify.com", access_token: "t", account: account)
+    expected = { "products" => "Catalog health", "orders" => "Payment and fulfillment", "activity" => "Recent storefront events",
+                 "actions" => "Awaiting review" }
+
+    expected.each do |section, copy|
+      get shopify_embedded_app_path, params: { shop: shop.shopify_domain, section: section }
+      assert_response :ok
+      assert_includes response.body, copy
+    end
+  end
+
   test "embed home tolerates missing shopify params with friendly message" do
     get shopify_embedded_app_path
     assert_response :ok
-    assert_match(/No Shopify embed params/i, response.body)
-    assert_includes response.body, "/shopify"
+    assert_includes response.body, "Open Sellora from Shopify Admin"
   end
 
   test "embed home omits X-Frame-Options SAMEORIGIN and sets frame-ancestors CSP" do

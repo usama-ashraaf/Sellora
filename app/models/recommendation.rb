@@ -5,7 +5,9 @@ class Recommendation < ApplicationRecord
     catalog_fix
     availability
     promotion_accuracy
+    promotion_opportunity
     traffic_intent
+    conversion_review
     verify_manual
   ].freeze
   PRIORITIES = %w[high medium low].freeze

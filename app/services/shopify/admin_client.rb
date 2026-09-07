@@ -5,7 +5,7 @@ require "net/http"
 require "uri"
 
 module Shopify
-  # Read-only Admin GraphQL client (Phase A scopes only).
+  # Admin GraphQL transport used by scoped read and merchant-approved write services.
   class AdminClient
     Error = Class.new(StandardError)
     # Transient HTTP / transport failures suitable for Active Job retry_on.
@@ -25,6 +25,7 @@ module Shopify
             title
             handle
             status
+            descriptionHtml
             variants(first: 50) {
               pageInfo {
                 hasNextPage
@@ -35,6 +36,8 @@ module Shopify
                 title
                 sku
                 barcode
+                price
+                compareAtPrice
                 selectedOptions {
                   name
                   value
@@ -77,6 +80,8 @@ module Shopify
               title
               sku
               barcode
+              price
+              compareAtPrice
               selectedOptions {
                 name
                 value

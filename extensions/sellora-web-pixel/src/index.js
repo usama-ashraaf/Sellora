@@ -8,12 +8,65 @@
 import { register } from "@shopify/web-pixels-extension";
 import { mayFire } from "./consent.js";
 
-// Storefront analytics only — no checkout/order topics in Phase A.
 const SUBSCRIPTIONS = [
   { name: "page_viewed", needsMarketing: false },
   { name: "product_viewed", needsMarketing: false },
-  { name: "product_added_to_cart", needsMarketing: false }
+  { name: "product_added_to_cart", needsMarketing: false },
+  { name: "product_removed_from_cart", needsMarketing: false },
+  { name: "checkout_started", needsMarketing: false },
+  { name: "payment_info_submitted", needsMarketing: false },
+  { name: "checkout_completed", needsMarketing: false }
 ];
+
+function money(value) {
+  if (!value) return {};
+  return { amount: value.amount, currency: value.currencyCode };
+}
+
+function variantPayload(variant) {
+  if (!variant) return {};
+  return {
+    product_id: variant.product && variant.product.id,
+    variant_id: variant.id,
+    sku: variant.sku
+  };
+}
+
+function eventPayload(eventName, event) {
+  const data = event && event.data ? event.data : {};
+  const base = { id: event && event.id, name: event && event.name };
+
+  if (eventName === "product_viewed") {
+    const variant = data.productVariant;
+    return { ...base, ...variantPayload(variant), ...money(variant && variant.price) };
+  }
+
+  if (eventName === "product_added_to_cart" || eventName === "product_removed_from_cart") {
+    const line = data.cartLine;
+    return {
+      ...base,
+      ...variantPayload(line && line.merchandise),
+      quantity: line && line.quantity,
+      ...money(line && line.cost && line.cost.totalAmount)
+    };
+  }
+
+  if (eventName.startsWith("checkout_") || eventName === "payment_info_submitted") {
+    const checkout = data.checkout || {};
+    return {
+      ...base,
+      checkout_token: checkout.token,
+      order_id: checkout.order && checkout.order.id,
+      ...money(checkout.totalPrice),
+      line_items: (checkout.lineItems || []).slice(0, 25).map((line) => ({
+        ...variantPayload(line.variant),
+        quantity: line.quantity
+      }))
+    };
+  }
+
+  return base;
+}
 
 register(({ analytics, settings, init, customerPrivacy }) => {
   let privacy = init && init.customerPrivacy ? init.customerPrivacy : null;
@@ -23,7 +76,6 @@ register(({ analytics, settings, init, customerPrivacy }) => {
   });
 
   const ingestUrl = settings && settings.ingestUrl;
-  const accountID = settings && settings.accountID;
   const shopDomain = settings && settings.shopDomain;
   const ingestToken = settings && settings.ingestToken;
 
@@ -37,17 +89,13 @@ register(({ analytics, settings, init, customerPrivacy }) => {
       shop_domain: shopDomain,
       event_name: eventName,
       occurred_at: (event && event.timestamp) || new Date().toISOString(),
-      account_id: accountID,
       consent: {
         analytics_processing_allowed: !!(privacy && privacy.analyticsProcessingAllowed),
         marketing_allowed: !!(privacy && privacy.marketingAllowed),
         preferences_processing_allowed: !!(privacy && privacy.preferencesProcessingAllowed),
         sale_of_data_allowed: !!(privacy && privacy.saleOfDataAllowed)
       },
-      payload: {
-        id: event && event.id,
-        name: event && event.name
-      }
+      payload: eventPayload(eventName, event)
     };
 
     // Public capability: event submission only, scoped to this installation.

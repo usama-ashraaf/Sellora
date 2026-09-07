@@ -1,0 +1,14 @@
+<div class="page-heading"><div><h1>Overview</h1><p class="muted">What needs attention and what you can do next.</p></div><%= link_to "Open Shopify Admin ↗", shopify_admin_url(@shop_record, ""), class: "button", target: "_top" %></div>
+<div class="grid metrics">
+  <div class="card"><div class="metric-label">Products monitored</div><div class="metric-value"><%= @pilot_ops[:products] %></div><div class="metric-note">Synced catalog</div></div>
+  <div class="card"><div class="metric-label">Orders mirrored</div><div class="metric-value"><%= @pilot_ops[:orders] %></div><div class="metric-note">Last 30 days: <%= @commerce_signals[:order_outcomes][:total] %></div></div>
+  <div class="card"><div class="metric-label">Open findings</div><div class="metric-value"><%= @open_findings_count %></div><div class="metric-note">Catalog checks</div></div>
+  <div class="card"><div class="metric-label">Actions to review</div><div class="metric-value"><%= @recommendations.count %></div><div class="metric-note"><%= @recommendations.count { |rec| rec.priority == "high" } %> high priority</div></div>
+</div>
+<div class="grid two-col">
+  <section class="card"><div class="section-head"><h2>Priority recommendations</h2><%= link_to "View all", shopify_embedded_app_path(shop: @shop_domain, host: @host, section: "recommendations"), class: "section-link" %></div><% @recommendations.first(3).each do |rec| %><%= render "shopify/app/recommendation", recommendation: rec %><% end %><% if @recommendations.blank? %><div class="empty">No open recommendations.</div><% end %></section>
+  <div class="stack">
+    <section class="card"><div class="section-head"><h2>Storefront journey · 7 days</h2><%= link_to "Activity", shopify_embedded_app_path(shop: @shop_domain, host: @host, section: "activity"), class: "section-link" %></div><% funnel = @commerce_signals[:funnel] %><div class="funnel"><div class="funnel-step"><strong><%= funnel["product_viewed"] %></strong><span>Product views</span></div><div class="funnel-step"><strong><%= funnel["product_added_to_cart"] %></strong><span>Cart adds</span></div><div class="funnel-step"><strong><%= funnel["checkout_started"] %></strong><span>Checkouts</span></div><div class="funnel-step"><strong><%= funnel["checkout_completed"] %></strong><span>Completed</span></div></div></section>
+    <section class="card"><div class="section-head"><h2>Order outcomes · 30 days</h2><%= link_to "View orders", shopify_embedded_app_path(shop: @shop_domain, host: @host, section: "orders"), class: "section-link" %></div><% outcomes = @commerce_signals[:order_outcomes] %><ul class="list"><li><strong><%= outcomes[:paid] %></strong> paid · <%= outcomes[:pending_payment] %> pending payment</li><li><strong><%= outcomes[:fulfilled] %></strong> fulfilled · <%= outcomes[:cancelled] %> cancelled · <%= outcomes[:refunded] %> refunded</li></ul></section>
+  </div>
+</div>

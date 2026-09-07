@@ -6,6 +6,7 @@ module WebPixels
   # Server/test auth: X-Sellora-Pixel-Secret (WEB_PIXEL_INGEST_SECRET). See docs/web-pixel.md.
   class EventsController < ActionController::Base
     skip_forgery_protection
+    wrap_parameters false
 
     before_action :cors_headers
     before_action :limit_body!, only: :create
@@ -85,7 +86,7 @@ module WebPixels
     end
 
     def permitted
-      params.permit(:shop_domain, :event_name, :occurred_at, :account_id, consent: {}, payload: {})
+      params.permit(:shop_domain, :event_name, :occurred_at, consent: {}, payload: {})
     end
 
     def consent_param
