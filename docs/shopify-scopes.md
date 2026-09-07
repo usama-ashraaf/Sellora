@@ -20,7 +20,7 @@ Principle: **least privilege**. Enable only what the current milestone needs. Ne
 - `shop/update` (optional)
 
 **Not Admin scopes (separate extensions — M3):**
-- Web Pixel Extension (storefront events; consent-aware) — stub in `extensions/sellora-web-pixel/`; see [web-pixel.md](./web-pixel.md)
+- Web Pixel Extension (storefront events; consent-aware) — implemented in `extensions/sellora-web-pixel/`; see [web-pixel.md](./web-pixel.md)
 - Optional storefront extension later (size select / placement) — not required for first install
 
 ### Pixel scopes — Wave 1 enabled (Usama approved 2026-09-06)
@@ -34,13 +34,13 @@ Principle: **least privilege**. Enable only what the current milestone needs. Ne
 Rails requests these on install and registers the pixel via `Shopify::WebPixelRegistrar` (see [web-pixel.md](./web-pixel.md)). **Partner Dev Dashboard must also list both scopes** (Eng saves via browser separately).
 
 ### Phase B — M3 orders (enabled for local Wave 1)
-Enabled for M3 order records. Promo/discount scopes still parked:
+Enabled for M3 order records:
 | Scope | Why |
 |-------|-----|
 | `read_orders` | Orders, line items, financial/fulfillment status (not proof of COD collection) |
-| `read_discounts` | Promotion / offer accuracy (API name may be `read_discounts` / price rules depending on API version — Eng verify current name) |
 
 Hold until needed:
+- `read_discounts` — not needed for the current product-specific discount creation flow
 - `read_customers` — **avoid** unless a pilot requires it (minimize PII)
 - `read_checkouts` — usually unnecessary if we have pixel + orders
 - Advertising APIs — later, pilot-driven
@@ -53,7 +53,7 @@ Add only when applying merchant-approved fixes:
 | `write_inventory` | Only if we ever adjust stock (default: **omit** unless product requires it) |
 | `write_discounts` | Approved promo corrections (verify current scope name) |
 
-Still no autopilot without M6 controls.
+All writes also require the server-side `SELLORA_ALLOW_WRITES=true` gate. Bounded autopilot is disabled by default and applies only merchant-selected action types within configured limits.
 
 ### Phase D — M6 bounded autopilot
 Same write scopes as Phase C; no new scopes expected. Controls are product/ops (evidence floors, cooldowns, caps, kill switch), not extra OAuth scopes.
@@ -65,9 +65,9 @@ Same write scopes as Phase C; no new scopes expected. Controls are product/ops (
 
 ## Current decision (2026-09-06)
 - **Installed / enabled for Wave 1:** Phase A + pixel + Phase B `read_orders`  
-- **OAuth ceiling:** `ShopifyConfig::ALLOWED_SCOPES` (still rejects `write_products`)  
+- **OAuth ceiling:** `ShopifyConfig::ALLOWED_SCOPES` includes reviewed product and discount writes; existing stores must reauthorize before those scopes are granted
 - **Order sync:** see [order-sync.md](./order-sync.md)  
-- **Approved in principle, not enabled:** Phase C at M5  
+- **Implemented but not live-verified:** Phase C reviewed actions and M6 bounded autopilot
 - Eng must verify exact scope strings against current Shopify Admin API version before flipping in Partners.
 
 ## Install checklist (Eng)

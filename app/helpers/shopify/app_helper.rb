@@ -18,6 +18,9 @@ module Shopify::AppHelper
   def recommendation_action_label(recommendation)
     case recommendation.kind
     when "promotion_opportunity" then "Review promotion setup"
+    when "featured_product" then "Feature on storefront"
+    when "social_ad_candidate" then "Prepare social campaign"
+    when "restock_before_promotion" then "Restock before promotion"
     when "conversion_review" then "Improve product and checkout"
     when "traffic_intent" then "Review product page"
     else "Fix product details"

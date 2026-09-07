@@ -74,7 +74,15 @@ module Shopify
       product.handle = node["handle"]
       product.status = normalize_status(node["status"])
       variant_prices = Array(node.dig("variants", "nodes")).to_h do |variant|
-        [ variant.fetch("id"), { "price" => variant["price"], "compare_at_price" => variant["compareAtPrice"] } ]
+        [
+          variant.fetch("id"),
+          {
+            "price" => variant["price"],
+            "compare_at_price" => variant["compareAtPrice"],
+            "unit_cost" => variant.dig("inventoryItem", "unitCost", "amount"),
+            "cost_currency" => variant.dig("inventoryItem", "unitCost", "currencyCode")
+          }
+        ]
       end
       description_html = node["descriptionHtml"].to_s
       product.raw_attrs = {

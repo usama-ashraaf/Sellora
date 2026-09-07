@@ -34,6 +34,15 @@ class Pilot::ActionPayloadTest < ActiveSupport::TestCase
     assert_match(/between 1 and 80/, error.message)
   end
 
+  test "turns a social ad recommendation into a reviewed discount proposal" do
+    payload = Pilot::ActionPayload.build(
+      recommendation: recommendation!("social_ad_candidate"),
+      attributes: { code: "SOCIAL10", percentage: 10 }
+    )
+    assert_equal "discount_code_create", payload["operation"]
+    assert_equal "SOCIAL10", payload["code"]
+  end
+
   test "requires a concrete product content change" do
     recommendation = recommendation!("catalog_fix")
     assert_raises(Pilot::ActionPayload::Error) do

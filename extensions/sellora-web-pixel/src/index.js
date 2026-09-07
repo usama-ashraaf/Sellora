@@ -1,5 +1,5 @@
 /**
- * Sellora Web Pixel — consent-aware storefront event stub (M3 lean).
+ * Sellora Web Pixel — consent-aware storefront event collector.
  *
  * Auth: settings.ingestToken → X-Sellora-Pixel-Token (write-only; no Admin credentials).
  * Shop routing: settings.shopDomain (canonical myshopify.com), not the storefront host.

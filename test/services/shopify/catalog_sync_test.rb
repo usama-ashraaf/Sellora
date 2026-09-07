@@ -34,6 +34,8 @@ class Shopify::CatalogSyncTest < ActiveSupport::TestCase
               barcode: "111",
               options: [ { "name" => "Size", "value" => "S" }, { "name" => "Color", "value" => "Blue" } ],
               inventory_item_id: "gid://shopify/InventoryItem/301",
+              price: "3000.00",
+              unit_cost: "1200.00",
               levels: [
                 { location: "gid://shopify/Location/1", available: 12 },
                 { location: "gid://shopify/Location/2", available: 3 }
@@ -60,6 +62,7 @@ class Shopify::CatalogSyncTest < ActiveSupport::TestCase
     assert_equal "S / Blue", variant.option_summary
     assert_equal "111", variant.barcode
     assert_equal "gid://shopify/InventoryItem/301", variant.inventory_item_external_id
+    assert_equal "1200.00", product.raw_attrs.dig("variant_prices", variant.external_id, "unit_cost")
 
     levels = variant.catalog_inventory_levels.order(:location_external_id)
     assert_equal 2, levels.size
@@ -212,15 +215,17 @@ class Shopify::CatalogSyncTest < ActiveSupport::TestCase
     }
   end
 
-  def variant_node(id:, title:, sku:, inventory_item_id:, levels:, options: [], barcode: nil)
+  def variant_node(id:, title:, sku:, inventory_item_id:, levels:, options: [], barcode: nil, price: nil, unit_cost: nil)
     {
       "id" => id,
       "title" => title,
       "sku" => sku,
       "barcode" => barcode,
+      "price" => price,
       "selectedOptions" => options,
       "inventoryItem" => {
         "id" => inventory_item_id,
+        "unitCost" => unit_cost && { "amount" => unit_cost, "currencyCode" => "PKR" },
         "inventoryLevels" => {
           "nodes" => levels.map do |lvl|
             {

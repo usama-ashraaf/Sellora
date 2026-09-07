@@ -5,6 +5,8 @@ module Shopify
     Error = Class.new(StandardError)
 
     def self.apply(shop:, action:)
+      raise Error, "Shopify writes are disabled" unless ShopifyConfig.allow_writes?
+
       operation = action.after_snapshot.fetch("operation")
       case operation
       when "product_update", "variant_compare_at_clear"

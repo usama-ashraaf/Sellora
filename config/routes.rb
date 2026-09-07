@@ -9,10 +9,15 @@ Rails.application.routes.draw do
   # Shopify OAuth (Phase A — M3 foundation). Marketing routes stay untouched above.
   get "shopify", to: "shopify/app#show", as: :shopify_embedded_app
   get "shopify/app", to: "shopify/app#show"
+  get "shopify/dashboard", to: "shopify/app#dashboard", as: :shopify_dashboard
   post "shopify/actions", to: "shopify/actions#create", as: :shopify_actions
   post "shopify/actions/:id/approve", to: "shopify/actions#approve", as: :approve_shopify_action
   post "shopify/actions/:id/reject", to: "shopify/actions#reject", as: :reject_shopify_action
   post "shopify/actions/:id/apply", to: "shopify/actions#apply", as: :apply_shopify_action
+  post "shopify/actions/:id/retry", to: "shopify/actions#retry_action", as: :retry_shopify_action
+  patch "shopify/autopilot", to: "shopify/autopilot_policies#update", as: :shopify_autopilot_policy
+  post "shopify/autopilot/kill", to: "shopify/autopilot_policies#kill", as: :kill_shopify_autopilot
+  post "shopify/autopilot/run", to: "shopify/autopilot_policies#run", as: :run_shopify_autopilot
   get "shopify/install", to: "shopify/auth#install", as: :shopify_install
   get "auth/shopify/callback", to: "shopify/auth#callback", as: :shopify_callback
 
@@ -25,6 +30,7 @@ Rails.application.routes.draw do
     post "orders_create", to: "shopify#receive", defaults: { topic: "orders_create" }
     post "orders_updated", to: "shopify#receive", defaults: { topic: "orders_updated" }
     post "app_uninstalled", to: "shopify#receive", defaults: { topic: "app_uninstalled" }
+    post "privacy", to: "shopify_privacy#receive", as: :privacy
   end
 
   # Web Pixel ingest (installation token or shared secret). Consent-aware; see docs/web-pixel.md.

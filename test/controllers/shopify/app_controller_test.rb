@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "base64"
+require "json"
+require "openssl"
 
 class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
   setup do
@@ -19,9 +22,13 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
     get shopify_embedded_app_path, params: { shop: "acme.myshopify.com", host: "abc" }
     assert_response :ok
     assert_includes response.body, "Sellora"
+    assert_includes response.body, "Authenticating this Shopify session"
+    assert_includes response.body, "shopifycloud/app-bridge.js"
+
+    get shopify_dashboard_path, params: { section: "overview" }, headers: authorization_header("acme.myshopify.com")
+    assert_response :ok
     assert_includes response.body, "Connect Sellora"
     assert_includes response.body, "Install or repair connection"
-    assert_includes response.body, "shopifycloud/app-bridge.js"
   end
 
   test "embed home via /shopify/app alias" do
@@ -34,7 +41,7 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
     account = Account.create!(name: "Dashboard Merchant")
     Shop.create!(shopify_domain: "dashboard.myshopify.com", access_token: "t", account: account)
 
-    get shopify_embedded_app_path, params: { shop: "dashboard.myshopify.com", host: "abc" }
+    get shopify_dashboard_path, params: { host: "abc" }, headers: authorization_header("dashboard.myshopify.com")
 
     assert_response :ok
     assert_includes response.body, "Commerce intelligence"
@@ -47,6 +54,22 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Order outcomes · 30 days"
   end
 
+  test "overview highlights ranked growth recommendations" do
+    account = Account.create!(name: "Growth Dashboard")
+    shop = Shop.create!(shopify_domain: "growth.myshopify.com", access_token: "t", account: account)
+    product = shop.catalog_products.create!(external_id: "gid://shopify/Product/77", title: "Ready Kurti", status: "active")
+    shop.recommendations.create!(account: account, catalog_product: product, kind: "social_ad_candidate",
+                                 priority: "medium", status: "open", title: "Social ad candidate: Ready Kurti",
+                                 rationale: "3 paid orders, 60 units available, and 100% size coverage.")
+
+    get shopify_dashboard_path, params: { section: "overview" }, headers: authorization_header(shop.shopify_domain)
+
+    assert_response :ok
+    assert_includes response.body, "Growth opportunities"
+    assert_includes response.body, "Prepare social campaign"
+    assert_includes response.body, "Ready Kurti"
+  end
+
   test "recommendations provide real Shopify product discount and order actions" do
     account = Account.create!(name: "Actionable Dashboard")
     shop = Shop.create!(shopify_domain: "actionable.myshopify.com", access_token: "t", account: account)
@@ -55,7 +78,7 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
                                  priority: "high", status: "open", title: "Promotion candidate",
                                  rationale: "Matched interest and paid orders", suggested_action: "Review the campaign fit.")
 
-    get shopify_embedded_app_path, params: { shop: shop.shopify_domain, host: "abc", section: "recommendations" }
+    get shopify_dashboard_path, params: { host: "abc", section: "recommendations" }, headers: authorization_header(shop.shopify_domain)
 
     assert_response :ok
     assert_includes response.body, "Edit product in Shopify"
@@ -71,7 +94,7 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
                  "actions" => "Awaiting review" }
 
     expected.each do |section, copy|
-      get shopify_embedded_app_path, params: { shop: shop.shopify_domain, section: section }
+      get shopify_dashboard_path, params: { section: section }, headers: authorization_header(shop.shopify_domain)
       assert_response :ok
       assert_includes response.body, copy
     end
@@ -81,6 +104,20 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
     get shopify_embedded_app_path
     assert_response :ok
     assert_includes response.body, "Open Sellora from Shopify Admin"
+  end
+
+  test "dashboard rejects missing identity and bootstrap contains no merchant data" do
+    account = Account.create!(name: "Private Dashboard")
+    Shop.create!(shopify_domain: "private.myshopify.com", access_token: "t", account: account)
+
+    get shopify_embedded_app_path, params: { shop: "private.myshopify.com" }
+    assert_response :ok
+    assert_not_includes response.body, "Private Dashboard"
+    assert_not_includes response.body, "private.myshopify.com"
+
+    get shopify_dashboard_path
+    assert_response :unauthorized
+    assert_equal "1", response.headers["X-Shopify-Retry-Invalid-Session-Request"]
   end
 
   test "embed home omits X-Frame-Options SAMEORIGIN and sets frame-ancestors CSP" do
@@ -102,5 +139,26 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
     # Marketing must not inherit the Shopify embed CSP / deleted XFO behavior.
     xfo = response.headers["X-Frame-Options"]
     assert_equal "SAMEORIGIN", xfo
+  end
+
+
+  private
+
+  def authorization_header(shop_domain)
+    header = encode({ alg: "HS256", typ: "JWT" })
+    payload = encode({
+      iss: "https://#{shop_domain}/admin",
+      dest: "https://#{shop_domain}",
+      aud: "test-client-id",
+      sub: "merchant-42",
+      nbf: 1.minute.ago.to_i,
+      exp: 1.minute.from_now.to_i
+    })
+    signature = Base64.urlsafe_encode64(OpenSSL::HMAC.digest("SHA256", "test-shopify-secret", "#{header}.#{payload}"), padding: false)
+    { "Authorization" => "Bearer #{[ header, payload, signature ].join('.')}" }
+  end
+
+  def encode(value)
+    Base64.urlsafe_encode64(JSON.generate(value), padding: false)
   end
 end

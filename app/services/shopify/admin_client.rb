@@ -44,6 +44,7 @@ module Shopify
                 }
                 inventoryItem {
                   id
+                  unitCost { amount currencyCode }
                   inventoryLevels(first: 10) {
                     pageInfo {
                       hasNextPage
@@ -88,6 +89,7 @@ module Shopify
               }
               inventoryItem {
                 id
+                unitCost { amount currencyCode }
                 inventoryLevels(first: 10) {
                   pageInfo {
                     hasNextPage

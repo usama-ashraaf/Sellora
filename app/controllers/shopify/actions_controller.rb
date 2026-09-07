@@ -3,6 +3,7 @@
 module Shopify
   class ActionsController < ActionController::Base
     include Shopify::EmbeddedFrameHeaders
+    include Shopify::SessionTokenAuthentication
 
     skip_forgery_protection
     before_action :authenticate_shopify_user!
@@ -43,13 +44,18 @@ module Shopify
       render_error(e.message, :unprocessable_entity)
     end
 
+    def retry_action
+      action = Pilot::ReviewedActions.retry!(@action, actor_email: actor_identifier)
+      render json: response_payload(action, "Action refreshed and returned for approval.")
+    rescue Pilot::ReviewedActions::Error => e
+      render_error(e.message, :unprocessable_entity)
+    end
+
     private
 
     def authenticate_shopify_user!
-      token = request.authorization.to_s.delete_prefix("Bearer ").presence
-      @identity = Shopify::IdTokenVerifier.verify(token)
-      domain = Shop.normalize_domain(URI.parse(@identity.fetch("dest")).host)
-      @shop = Shop.installed.find_by!(shopify_domain: domain)
+      verify_shopify_session!
+      @shop = Shop.installed.find_by!(shopify_domain: @shop_domain)
     rescue Shopify::IdTokenVerifier::Error, ActiveRecord::RecordNotFound, KeyError, URI::InvalidURIError => e
       response.set_header("X-Shopify-Retry-Invalid-Session-Request", "1")
       render_error(e.message, :unauthorized)

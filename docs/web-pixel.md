@@ -6,7 +6,7 @@ Storefront behavioral events flow through a Shopify **Web Pixel Extension**, gat
 
 | Piece | Location |
 |-------|----------|
-| Extension stub | `extensions/sellora-web-pixel/` (`shopify.extension.toml` + `src/index.js` + `src/consent.js`) |
+| Pixel extension | `extensions/sellora-web-pixel/` (`shopify.extension.toml` + `src/index.js` + `src/consent.js`) |
 | Ingest service | `Activity::WebPixelIngest` → `Activity::Ingest` with `source: "web_pixel"` |
 | HTTP endpoint | `POST /web_pixels/events` + `OPTIONS` preflight (`WebPixels::EventsController`) |
 | Browser auth | Installation-scoped `ingestToken` → header `X-Sellora-Pixel-Token` (`Activity::PixelToken`) |
@@ -36,7 +36,7 @@ Product and cart payloads include Shopify product and variant GIDs. Checkout pay
 
 ## Pixel scopes — approved and enabled (Wave 1)
 
-**Usama approved 2026-09-06.** `write_pixels` and `read_customer_events` are in `ShopifyConfig::PIXEL_SCOPES` / `ALLOWED_SCOPES` and default `SHOPIFY_SCOPES`. Phase B `read_orders` remains parked.
+**Usama approved 2026-09-06.** `write_pixels` and `read_customer_events` are in `ShopifyConfig::PIXEL_SCOPES` / `ALLOWED_SCOPES` and default `SHOPIFY_SCOPES`. Phase B `read_orders` is also implemented; existing installations must reauthorize whenever their granted scope snapshot is missing required scopes.
 
 **Partner Dev Dashboard must also list the two pixel scopes** (Eng will save via browser separately). Rails OAuth alone is not enough if the Partner app version omits them.
 

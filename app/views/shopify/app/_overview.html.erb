@@ -5,6 +5,16 @@
   <div class="card"><div class="metric-label">Open findings</div><div class="metric-value"><%= @open_findings_count %></div><div class="metric-note">Catalog checks</div></div>
   <div class="card"><div class="metric-label">Actions to review</div><div class="metric-value"><%= @recommendations.count %></div><div class="metric-note"><%= @recommendations.count { |rec| rec.priority == "high" } %> high priority</div></div>
 </div>
+<% if @growth_recommendations.any? %>
+  <section class="card" style="margin-bottom:1rem">
+    <div class="section-head"><h2>Growth opportunities</h2><%= link_to "View recommendations", shopify_embedded_app_path(shop: @shop_domain, host: @host, section: "recommendations"), class: "section-link" %></div>
+    <div class="growth-grid">
+      <% @growth_recommendations.each do |rec| %>
+        <article class="growth-card"><span class="badge <%= recommendation_badge_class(rec.priority) %>"><%= recommendation_action_label(rec) %></span><h3><%= rec.catalog_product&.title %></h3><p><%= rec.rationale %></p></article>
+      <% end %>
+    </div>
+  </section>
+<% end %>
 <div class="grid two-col">
   <section class="card"><div class="section-head"><h2>Priority recommendations</h2><%= link_to "View all", shopify_embedded_app_path(shop: @shop_domain, host: @host, section: "recommendations"), class: "section-link" %></div><% @recommendations.first(3).each do |rec| %><%= render "shopify/app/recommendation", recommendation: rec %><% end %><% if @recommendations.blank? %><div class="empty">No open recommendations.</div><% end %></section>
   <div class="stack">

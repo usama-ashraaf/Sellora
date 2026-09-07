@@ -156,7 +156,7 @@ bin/rails sellora:register_webhooks_all
 2. Trigger a small product update in Admin (or Admin API) on one Wave 1 store.
 3. Confirm a `webhook_events` row for `products/update` (or matching topic) and/or a log line `[shopify webhook] catalog sync enqueued`.
 
-## Web Pixel (consent-aware stub)
+## Web Pixel (consent-aware collector)
 
 Storefront pixel extension + `POST /web_pixels/events` ingest: **`docs/web-pixel.md`**.
 

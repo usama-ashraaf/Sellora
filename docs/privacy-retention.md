@@ -48,28 +48,28 @@ Re-install starts with an empty local catalog, a new OAuth token, and a new pixe
 - Stored in PostgreSQL via `PilotRequest`.
 - Logging filters personal fields; see marketing review notes.
 - Public page still uses a **placeholder** privacy contact until Usama assigns a monitored address (`docs/marketing-review.md` K-01).
-- Deletion of pilot rows is ops/manual until a self-serve or ticketed process exists.
+- Pilot rows are automatically deleted after 365 days and can be deleted earlier after a verified request.
 
-## Retention hypotheses (not automated yet)
+## Automated retention limits
 
 | Data | Working hypothesis |
 |------|--------------------|
 | Catalog / findings / shop activity | Deleted on uninstall (implemented) |
-| Webhook idempotency ledger | Keep ≥ 30 days for replay defense; ops may prune older rows |
-| Pilot requests | Keep until pilot outreach completes or requester asks deletion; review quarterly |
-| Uninstalled `shops` rows | Keep for audit; optional hard-delete after 90 days if domain recycled |
+| Webhook idempotency ledger | Delete after 30 days |
+| Pilot requests | Delete after 365 days or earlier after a verified request |
+| Uninstalled `shops` rows | Hard-delete after 90 days |
 
-No automated TTL jobs ship in this milestone.
+`DataRetentionJob` enforces these limits daily through `config/recurring.yml`.
 
 ## GDPR / Shopify privacy webhooks
 
-Shopify mandatory compliance webhooks (`customers/data_request`, `customers/redact`, `shop/redact`) are **not registered yet**. Wave 1 stores are fictional Partner development catalogs with minimal customer PII by design. Register and implement these before any production / App Store distribution.
+Shopify mandatory compliance webhooks (`customers/data_request`, `customers/redact`, `shop/redact`) share the HMAC-verified `/webhooks/shopify/privacy` endpoint and are declared in `shopify.app.toml`. A deployed app version is still required before Shopify delivers them.
 
 ## Public launch blockers (privacy)
 
 1. Replace placeholder privacy contact and publish accurate retention copy.
 2. Assign ops owner for pilot request review and deletion requests.
-3. Implement Shopify privacy/compliance webhooks before production merchants.
+3. Deploy and verify Shopify privacy/compliance webhooks before production merchants.
 4. Confirm production HTTPS host, backups, and cache (rate limits) configuration.
 
 ## Related

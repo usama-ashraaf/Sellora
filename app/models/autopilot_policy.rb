@@ -6,10 +6,17 @@ class AutopilotPolicy < ApplicationRecord
 
   belongs_to :account
   belongs_to :shop
+  has_many :autopilot_runs, dependent: :destroy
 
   validates :min_severity, inclusion: { in: SEVERITIES }
   validates :cooldown_hours, numericality: { greater_than_or_equal_to: 1 }
   validates :max_actions_per_day, numericality: { greater_than_or_equal_to: 0 }
+  validates :minimum_evidence_count, :minimum_inventory_units,
+            numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+  validates :minimum_size_coverage_percent, :max_discount_percentage,
+            numericality: { only_integer: true, in: 0..100 }
+  validates :max_estimated_discount_cost_per_day, numericality: { greater_than_or_equal_to: 0 }
+  validates :margin_floor_pct, numericality: { in: 0..100 }, allow_nil: true
   validate :account_matches_shop
 
   def kill_switch!

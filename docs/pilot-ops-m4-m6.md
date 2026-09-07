@@ -24,8 +24,8 @@ Honesty: recommendations tell the team what to **verify**. No invented garment f
 | Model | `ReviewedAction` (before/after snapshots, statuses) |
 | Workflow | `Pilot::ReviewedActions` propose → approve/reject → apply |
 | Conflict | Fingerprint mismatch → `conflict` status |
-| Writes | Local apply by default; Shopify write only if `write_products` **and** `SELLORA_ALLOW_WRITES=true` |
-| Patch stub | `Shopify::ProductPatch` (no autonomous pricing) |
+| Writes | Shopify product/discount mutations require the matching scope **and** `SELLORA_ALLOW_WRITES=true` |
+| Recovery | Failed/conflicted actions refresh their source snapshot and return to explicit approval |
 
 Rake: `sellora:propose_action[id]`, `sellora:apply_action[id]`
 
@@ -33,8 +33,9 @@ Rake: `sellora:propose_action[id]`, `sellora:apply_action[id]`
 
 | Piece | Location |
 |-------|----------|
-| Policy | `AutopilotPolicy` (enabled default **false**, kinds allowlist, severity floor, cooldown, daily cap, require_in_stock, kill switch) |
-| Runner | `Pilot::Autopilot` / `Pilot::AutopilotShopJob` |
+| Policy | `AutopilotPolicy` (enabled default **false**, kinds/evidence/severity floors, cooldown, daily action and estimated-discount caps, stock, size, margin, kill switch) |
+| Runner | `Pilot::Autopilot` / `Pilot::AutopilotShopJob` / hourly `Pilot::DailyAutopilotJob` |
+| Monitoring | Durable `AutopilotRun` rows and recent-run dashboard history |
 | Rake | `sellora:autopilot[shop]`, `sellora:autopilot_kill[shop]` |
 
 No autonomous pricing or advertising.

@@ -1,9 +1,33 @@
-<div class="app-shell">
-  <header class="topbar"><div class="brand"><span class="brand-mark">S</span><div><strong>Sellora</strong><small>Commerce intelligence</small></div></div><% if @shop_record&.installed? %><div class="connection"><span class="connection-dot"></span><%= @shop_record.shopify_domain %></div><% end %></header>
-  <% if @shop_record&.installed? %>
-    <nav class="nav" aria-label="Sellora dashboard"><% Shopify::AppController::SECTIONS.each do |section| %><%= link_to section.titleize, shopify_embedded_app_path(shop: @shop_domain, host: @host, section: section), class: (@section == section ? "active" : nil), aria: { current: (@section == section ? "page" : nil) } %><% end %></nav>
-    <main><%= render "shopify/app/#{@section}" %></main>
-  <% else %>
-    <main><div class="card empty"><h1>Connect Sellora</h1><% if @shop_domain.present? && @shop_domain.match?(Shop::DOMAIN_FORMAT) %><p>This store is not currently connected.</p><div class="actions" style="justify-content:center"><%= link_to "Install or repair connection", shopify_install_path(shop: @shop_domain), class: "button primary" %></div><% else %><p>Open Sellora from Shopify Admin to connect a store.</p><% end %></div></main>
-  <% end %>
+<div id="shopify-dashboard-root" class="app-shell">
+  <header class="topbar"><div class="brand"><span class="brand-mark">S</span><div><strong>Sellora</strong><small>Commerce intelligence</small></div></div></header>
+  <main><div class="card empty"><% if @embedded_params_present %><h1>Opening your Sellora workspace…</h1><p>Authenticating this Shopify session.</p><% else %><h1>Open Sellora from Shopify Admin</h1><p>Use the Apps section of an authorized Shopify store.</p><% end %></div></main>
 </div>
+<% if @embedded_params_present %>
+  <script>
+    (async () => {
+      const root = document.getElementById("shopify-dashboard-root");
+      try {
+        const token = await window.shopify.idToken();
+        const url = new URL("<%= shopify_dashboard_path %>", window.location.origin);
+        url.searchParams.set("section", "<%= @section %>");
+        <% if @host.present? %>url.searchParams.set("host", "<%= j @host %>");<% end %>
+        const response = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: "text/html" }, credentials: "omit" });
+        if (!response.ok) throw new Error(await response.text() || "Shopify session authentication failed.");
+        root.innerHTML = await response.text();
+      } catch (error) {
+        const card = document.createElement("div");
+        card.className = "card empty";
+        const heading = document.createElement("h1");
+        heading.textContent = "Session expired";
+        const message = document.createElement("p");
+        message.textContent = error.message;
+        const reload = document.createElement("button");
+        reload.className = "button primary";
+        reload.textContent = "Reload Sellora";
+        reload.addEventListener("click", () => window.location.reload());
+        card.append(heading, message, reload);
+        root.querySelector("main").replaceChildren(card);
+      }
+    })();
+  </script>
+<% end %>

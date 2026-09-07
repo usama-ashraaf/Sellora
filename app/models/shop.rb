@@ -13,6 +13,7 @@ class Shop < ApplicationRecord
   has_many :commerce_orders, dependent: :destroy
   has_many :recommendations, dependent: :destroy
   has_many :reviewed_actions, dependent: :destroy
+  has_many :autopilot_runs, dependent: :destroy
   has_one :autopilot_policy, dependent: :destroy
 
   validates :shopify_domain, presence: true, uniqueness: true, format: { with: DOMAIN_FORMAT }
@@ -32,15 +33,16 @@ class Shop < ApplicationRecord
   # Account / membership rows and marketing pilot_requests are separate (see docs/privacy-retention.md).
   def mark_uninstalled!
     transaction do
-      # Findings reference catalog rows; delete them before destroying products.
-      audit_findings.delete_all
-      recommendations.delete_all
-      reviewed_actions.delete_all
-      autopilot_policy&.destroy!
-      activity_events.delete_all
-      commerce_orders.find_each(&:destroy!)
-      catalog_products.find_each(&:destroy!)
+      purge_merchant_data!
       update!(uninstalled_at: Time.current, access_token: nil)
+    end
+  end
+
+  def redact!
+    self.class.transaction do
+      purge_merchant_data!
+      WebhookEvent.where(shopify_domain: shopify_domain).delete_all
+      destroy!
     end
   end
 
@@ -55,6 +57,18 @@ class Shop < ApplicationRecord
   end
 
   private
+
+  def purge_merchant_data!
+    # Findings and reviewed actions reference catalog rows; delete them first.
+    audit_findings.delete_all
+    recommendations.delete_all
+    reviewed_actions.delete_all
+    autopilot_runs.delete_all
+    autopilot_policy&.destroy!
+    activity_events.delete_all
+    commerce_orders.find_each(&:destroy!)
+    catalog_products.find_each(&:destroy!)
+  end
 
   def normalize_blank_access_token
     self.access_token = nil if access_token.blank?

@@ -15,8 +15,28 @@ production:
     queue: default
     schedule: at 2am every day
 
+  sellora_data_retention:
+    class: DataRetentionJob
+    queue: default
+    schedule: at 3am every day
+
+  sellora_autopilot:
+    class: Pilot::DailyAutopilotJob
+    queue: default
+    schedule: every hour at minute 30
+
 development:
   sellora_daily_discovery:
     class: Pilot::DailyDiscoveryJob
     queue: default
     schedule: every day at 2am
+
+  sellora_data_retention:
+    class: DataRetentionJob
+    queue: default
+    schedule: every day at 3am
+
+  sellora_autopilot:
+    class: Pilot::DailyAutopilotJob
+    queue: default
+    schedule: every hour at minute 30

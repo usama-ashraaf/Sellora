@@ -49,8 +49,12 @@ module ShopifyConfig
     client_id.present? && api_secret.present?
   end
 
-  # Shared secret for POST /web_pixels/events (pixel ingest stub). Not a Shopify scope.
-  # Storefront JS cannot hold this safely long-term — migrate to app proxy later.
+  def allow_writes?
+    ActiveModel::Type::Boolean.new.cast(ENV.fetch("SELLORA_ALLOW_WRITES", "false"))
+  end
+
+  # Optional server/test secret for POST /web_pixels/events. Not a Shopify scope.
+  # Storefront requests use a short, installation-bound capability token instead.
   def web_pixel_ingest_secret
     ENV.fetch("WEB_PIXEL_INGEST_SECRET", "")
   end

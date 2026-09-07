@@ -6,6 +6,7 @@ class Account < ApplicationRecord
   has_many :memberships, dependent: :destroy
   has_many :users, through: :memberships
   has_many :shops, dependent: :nullify
+  has_many :autopilot_runs, dependent: :destroy
   has_many :audit_findings, dependent: :destroy
   has_many :activity_events, dependent: :destroy
 

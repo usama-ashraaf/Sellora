@@ -29,8 +29,37 @@
   <section class="card">
     <div class="section-head"><h2>History</h2></div>
     <ul class="list">
-      <% @action_history.each do |action| %><li><strong><%= action.recommendation&.title || action.action_kind.titleize %></strong><br><span class="muted"><%= action.status.titleize %> · <%= action.result_message.presence || action.conflict_reason.presence || "No result note" %></span></li><% end %>
+      <% @action_history.each do |action| %><li><strong><%= action.recommendation&.title || action.action_kind.titleize %></strong><br><span class="muted"><%= action.status.titleize %> · <%= action.result_message.presence || action.conflict_reason.presence || "No result note" %></span><% if action.status.in?(%w[failed conflict]) %><div class="actions"><%= button_to "Refresh and retry", retry_shopify_action_path(action), method: :post, params: { host: @host }, form: { data: { authenticated_action: true } }, class: "button" %></div><% end %></li><% end %>
       <% if @action_history.blank? %><li class="empty">No completed action history.</li><% end %>
     </ul>
   </section>
 </div>
+<section class="card" style="margin-top:1rem">
+  <div class="section-head"><div><h2>Bounded autopilot</h2><p class="muted">Disabled by default. Every run records its result and obeys these merchant limits.</p></div><span class="badge <%= @autopilot_policy.enabled? ? "warning" : "neutral" %>"><%= @autopilot_policy.enabled? ? "Enabled" : "Stopped" %></span></div>
+  <%= form_with model: @autopilot_policy, url: shopify_autopilot_policy_path, method: :patch, data: { authenticated_action: true }, class: "action-form" do |form| %>
+    <%= hidden_field_tag :host, @host %>
+    <label><span><%= form.check_box :enabled %> Enable bounded autopilot</span></label>
+    <fieldset><legend>Allowed recommendation types</legend><div class="status-line">
+      <% Shopify::AutopilotPoliciesController::ALLOWED_KINDS.each do |kind| %><label><%= check_box_tag "autopilot_policy[allowed_action_kinds][]", kind, @autopilot_policy.allowed_action_kinds.include?(kind) %> <%= kind.humanize %></label><% end %>
+    </div></fieldset>
+    <div class="field-grid">
+      <label>Minimum priority<%= form.select :min_severity, AutopilotPolicy::SEVERITIES.map { |value| [value.titleize, value] } %></label>
+      <label>Minimum evidence events<%= form.number_field :minimum_evidence_count, min: 1 %></label>
+      <label>Cooldown hours<%= form.number_field :cooldown_hours, min: 1 %></label>
+      <label>Maximum actions per day<%= form.number_field :max_actions_per_day, min: 0 %></label>
+      <label>Minimum inventory units<%= form.number_field :minimum_inventory_units, min: 0 %></label>
+      <label>Minimum size coverage %<%= form.number_field :minimum_size_coverage_percent, min: 0, max: 100 %></label>
+      <label>Maximum discount %<%= form.number_field :max_discount_percentage, min: 0, max: 100 %></label>
+      <label>Daily estimated discount cap<%= form.number_field :max_estimated_discount_cost_per_day, min: 0, step: 0.01 %></label>
+      <label>Margin floor % when costs are known<%= form.number_field :margin_floor_pct, min: 0, max: 100, step: 0.01 %></label>
+      <label><span><%= form.check_box :require_in_stock %> Require inventory and size coverage</span></label>
+    </div>
+    <div class="actions"><%= form.submit "Save limits", class: "button primary" %></div>
+  <% end %>
+  <div class="actions">
+    <%= button_to "Run safety check now", run_shopify_autopilot_path, method: :post, params: { host: @host }, form: { data: { authenticated_action: true } }, class: "button" %>
+    <%= button_to "Stop autopilot", kill_shopify_autopilot_path, method: :post, params: { host: @host }, form: { data: { authenticated_action: true } }, class: "button danger-button" %>
+  </div>
+  <h3 style="margin-top:1rem">Recent runs</h3>
+  <ul class="list"><% @autopilot_runs.each do |run| %><li><strong><%= run.status.titleize %></strong> · <%= run.applied_count %> applied · <%= run.skipped_count %> skipped<br><span class="muted"><%= l run.started_at, format: :short %></span></li><% end %><% if @autopilot_runs.blank? %><li class="empty">No autopilot runs yet.</li><% end %></ul>
+</section>

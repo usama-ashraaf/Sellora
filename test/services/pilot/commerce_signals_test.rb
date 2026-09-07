@@ -9,6 +9,9 @@ class Pilot::CommerceSignalsTest < ActiveSupport::TestCase
     @product = @shop.catalog_products.create!(external_id: "gid://shopify/Product/1", title: "Linen Kurta", status: "active")
     variant = @product.catalog_variants.create!(external_id: "gid://shopify/ProductVariant/2", title: "M")
     variant.catalog_inventory_levels.create!(location_external_id: "gid://shopify/Location/3", available: 8)
+    @product.update!(raw_attrs: { "variant_prices" => {
+      variant.external_id => { "price" => "2500", "unit_cost" => "1000", "cost_currency" => "PKR" }
+    } })
   end
 
   test "joins product-level funnel events to authoritative order outcomes" do
@@ -32,6 +35,14 @@ class Pilot::CommerceSignalsTest < ActiveSupport::TestCase
     assert_equal 2, row[:paid_units]
     assert_equal BigDecimal("5000"), row[:paid_revenue]
     assert_equal 8, row[:inventory]
+    assert_equal 1, row[:available_variants]
+    assert_equal 1, row[:total_variants]
+    assert_equal 100, row[:size_coverage_percent]
+    assert_equal [ "M" ], row[:available_sizes]
+    assert_empty row[:unavailable_sizes]
+    assert_equal 100, row[:cost_coverage_percent]
+    assert_equal BigDecimal("60"), row[:minimum_margin_percent]
+    assert_equal BigDecimal("20000"), row[:inventory_retail_value]
     assert_equal({ total: 1, paid: 1, pending_payment: 0, cancelled: 0, refunded: 0, fulfilled: 1, cod: 1 }, signals[:order_outcomes])
   end
 

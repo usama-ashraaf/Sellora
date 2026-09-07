@@ -146,7 +146,7 @@ namespace :sellora do
     puts "Proposed reviewed_action id=#{action.id} status=#{action.status}"
   end
 
-  desc "M5 approve then apply a reviewed action id (local apply unless SELLORA_ALLOW_WRITES)"
+  desc "M5 approve then apply a reviewed action id (requires SELLORA_ALLOW_WRITES=true)"
   task :apply_action, [ :action_id ] => :environment do |_t, args|
     action = ReviewedAction.find(args[:action_id])
     Pilot::ReviewedActions.approve!(action, actor_email: "ops@sellora.local") unless action.approved?

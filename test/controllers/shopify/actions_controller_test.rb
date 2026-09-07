@@ -56,6 +56,22 @@ class Shopify::ActionsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "refreshes a failed action and requires approval again" do
+    action = @shop.reviewed_actions.create!(account: @account, recommendation: @recommendation,
+                                            action_kind: "product_update", status: "failed",
+                                            after_snapshot: { "operation" => "product_update", "product_id" => @product.external_id, "title" => "Verified" },
+                                            result_message: "temporary failure", failed_at: Time.current)
+    with_config do
+      post retry_shopify_action_path(action), headers: authorization_header
+      assert_response :success
+    end
+
+    assert_equal "pending_approval", action.reload.status
+    assert_nil action.failed_at
+    assert_nil action.result_message
+    assert action.source_fingerprint.present?
+  end
+
   private
 
   def authorization_header

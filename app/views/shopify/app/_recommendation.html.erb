@@ -10,13 +10,14 @@
   <p class="recommendation-copy"><%= recommendation.rationale %></p>
   <% if recommendation.suggested_action.present? %><div class="next-step"><strong><%= recommendation_action_label(recommendation) %></strong><%= recommendation.suggested_action %></div><% end %>
 
-  <% if recommendation.catalog_product %>
+  <% sellora_action = recommendation.catalog_product && !recommendation.kind.in?(%w[featured_product restock_before_promotion availability]) %>
+  <% if sellora_action %>
     <details class="action-builder">
       <summary>Prepare a Shopify change</summary>
       <%= form_with url: shopify_actions_path, method: :post, data: { authenticated_action: true }, class: "action-form" do %>
         <%= hidden_field_tag :recommendation_id, recommendation.id %>
         <%= hidden_field_tag :host, @host %>
-        <% if recommendation.kind == "promotion_opportunity" %>
+        <% if recommendation.kind.in?(%w[promotion_opportunity social_ad_candidate]) %>
           <div class="field-grid">
             <label>Discount code<%= text_field_tag "change[code]", "SELLORA#{recommendation.catalog_product.external_id.split('/').last.last(6)}", maxlength: 40, required: true %></label>
             <label>Percentage off<%= number_field_tag "change[percentage]", 10, min: 1, max: 80, required: true %></label>
@@ -37,8 +38,10 @@
   <% end %>
 
   <div class="actions">
+    <% if recommendation.kind == "featured_product" %><%= link_to "Customize storefront ↗", shopify_admin_url(@shop_record, "themes"), class: "button primary", target: "_top" %><% end %>
+    <% if recommendation.kind == "restock_before_promotion" %><%= link_to "Manage inventory ↗", shopify_admin_url(@shop_record, "products/inventory"), class: "button primary", target: "_top" %><% end %>
     <% if recommendation.catalog_product %><%= link_to "Edit product in Shopify ↗", shopify_admin_product_url(@shop_record, recommendation.catalog_product), class: "button", target: "_top" %><% end %>
-    <% if recommendation.kind.in?(%w[promotion_opportunity promotion_accuracy]) %><%= link_to "Review discounts ↗", shopify_admin_url(@shop_record, "discounts"), class: "button", target: "_top" %><% end %>
+    <% if recommendation.kind.in?(%w[promotion_opportunity promotion_accuracy social_ad_candidate]) %><%= link_to "Review discounts ↗", shopify_admin_url(@shop_record, "discounts"), class: "button", target: "_top" %><% end %>
     <%= link_to "Inspect orders ↗", shopify_admin_url(@shop_record, "orders"), class: "button", target: "_top" %>
   </div>
 </article>

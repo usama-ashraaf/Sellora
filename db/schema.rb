@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_07_030000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_08_020000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -94,12 +94,36 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_030000) do
     t.string "kill_switch_reason"
     t.decimal "margin_floor_pct", precision: 5, scale: 2
     t.integer "max_actions_per_day", default: 5, null: false
+    t.integer "max_discount_percentage", default: 20, null: false
+    t.decimal "max_estimated_discount_cost_per_day", precision: 12, scale: 2, default: "10000.0", null: false
     t.string "min_severity", default: "high", null: false
+    t.integer "minimum_evidence_count", default: 1, null: false
+    t.integer "minimum_inventory_units", default: 20, null: false
+    t.integer "minimum_size_coverage_percent", default: 70, null: false
     t.boolean "require_in_stock", default: true, null: false
     t.bigint "shop_id", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_autopilot_policies_on_account_id"
     t.index ["shop_id"], name: "index_autopilot_policies_on_shop_id", unique: true
+  end
+
+  create_table "autopilot_runs", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.integer "applied_count", default: 0, null: false
+    t.bigint "autopilot_policy_id", null: false
+    t.integer "candidates_count", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.jsonb "details", default: {}, null: false
+    t.datetime "finished_at"
+    t.bigint "shop_id", null: false
+    t.integer "skipped_count", default: 0, null: false
+    t.datetime "started_at", null: false
+    t.string "status", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_autopilot_runs_on_account_id"
+    t.index ["autopilot_policy_id"], name: "index_autopilot_runs_on_autopilot_policy_id"
+    t.index ["shop_id", "created_at"], name: "index_autopilot_runs_on_shop_id_and_created_at"
+    t.index ["shop_id"], name: "index_autopilot_runs_on_shop_id"
   end
 
   create_table "catalog_inventory_levels", force: :cascade do |t|
@@ -302,6 +326,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_030000) do
   add_foreign_key "audit_rules", "audit_rule_sets"
   add_foreign_key "autopilot_policies", "accounts"
   add_foreign_key "autopilot_policies", "shops"
+  add_foreign_key "autopilot_runs", "accounts"
+  add_foreign_key "autopilot_runs", "autopilot_policies"
+  add_foreign_key "autopilot_runs", "shops"
   add_foreign_key "catalog_inventory_levels", "catalog_variants"
   add_foreign_key "catalog_products", "shops"
   add_foreign_key "catalog_variants", "catalog_products"

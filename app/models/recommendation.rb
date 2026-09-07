@@ -6,6 +6,9 @@ class Recommendation < ApplicationRecord
     availability
     promotion_accuracy
     promotion_opportunity
+    featured_product
+    social_ad_candidate
+    restock_before_promotion
     traffic_intent
     conversion_review
     verify_manual

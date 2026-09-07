@@ -22,6 +22,10 @@ module Pilot
       new(action.shop).apply!(action, actor_email: actor_email)
     end
 
+    def self.retry!(action, actor_email: nil)
+      new(action.shop).retry!(action, actor_email: actor_email)
+    end
+
     def initialize(shop)
       @shop = shop
       raise Error, "shop has no account" if shop.account.blank?
@@ -46,7 +50,7 @@ module Pilot
         actor_email: actor_email,
         before_snapshot: before,
         after_snapshot: after,
-        source_fingerprint: product&.content_fingerprint
+        source_fingerprint: product&.then { |row| Audit::Fingerprint.for_product(row.reload) }
       )
       recommendation.update!(status: "proposed")
       action
@@ -90,6 +94,24 @@ module Pilot
       raise e if e.is_a?(Error)
 
       raise Error, e.message
+    end
+
+    def retry!(action, actor_email: nil)
+      raise Error, "only failed or conflicted actions can be retried" unless action.status.in?(%w[failed conflict])
+
+      product = action.recommendation&.catalog_product || action.audit_finding&.catalog_product
+      action.update!(
+        status: "pending_approval",
+        actor_email: actor_email.presence || action.actor_email,
+        before_snapshot: snapshot_for(product),
+        source_fingerprint: product&.then { |row| Audit::Fingerprint.for_product(row.reload) },
+        approved_at: nil,
+        failed_at: nil,
+        conflict_reason: nil,
+        result_message: nil
+      )
+      action.recommendation&.update!(status: "proposed")
+      action
     end
 
     private

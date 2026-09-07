@@ -14,7 +14,7 @@ Focus: local / Wave 1 development-store completion. Public launch and App Store 
 
 ## M3 — Shopify integration
 - [x] Install, catalog sync, webhooks, pixel ingest/token, orders Phase B, uninstall purge
-- [ ] Live ops: Partner URL/scopes, CLI pixel deploy, re-OAuth, storefront smoke (manual)
+- [ ] Live ops: stable Partner URL, CLI deploy, re-OAuth, pixel/compliance storefront smoke (manual)
 
 ## M4 — Read-only merchant pilot
 - [x] Daily discovery job + `Pilot::Discover`
@@ -30,13 +30,13 @@ Focus: local / Wave 1 development-store completion. Public launch and App Store 
 - [x] Shopify writes gated (`write_products` + `SELLORA_ALLOW_WRITES`) — no autonomous pricing
 
 ## M6 — Bounded autopilot
-- [x] `AutopilotPolicy` (allowlist, severity, cooldown, daily cap, stock gate)
+- [x] `AutopilotPolicy` (allowlist, evidence, severity, cooldown, daily action/discount caps, stock/size/margin gates)
 - [x] Kill switch (`kill_switch!` / enabled default false)
-- [x] `Pilot::Autopilot` runner
+- [x] `Pilot::Autopilot` runner, recurring schedule, merchant controls, and durable run history
 - Out of scope: autonomous pricing / advertising
 
 ## Still unfinished (honest)
 - Live Wave 1 pixel deploy + E2E (needs your CLI auth)
-- Concrete Admin `productUpdate` payloads per action kind (patch stub only)
-- Shopify compliance webhooks (customers/redact etc.) before production
+- Live product/discount action smoke on Wave 1
+- Deploy and verify Shopify compliance webhooks before production
 - Public marketing launch

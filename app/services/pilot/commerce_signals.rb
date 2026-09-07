@@ -42,10 +42,25 @@ module Pilot
 
     def product_rows
       @shop.catalog_products.includes(catalog_variants: :catalog_inventory_levels).each_with_object({}) do |product, rows|
+        variants = product.catalog_variants.to_a
+        availability = variants.to_h do |variant|
+          [ variant, variant.catalog_inventory_levels.sum(&:available) ]
+        end
+        available_variants = availability.count { |_variant, available| available.positive? }
+        total_variants = variants.size
+        economics = product_economics(product, variants, availability)
         rows[product.external_id] = {
           product: product,
           title: product.title,
-          inventory: product.catalog_variants.sum { |variant| variant.catalog_inventory_levels.sum(&:available) },
+          inventory: availability.values.sum,
+          total_variants: total_variants,
+          available_variants: available_variants,
+          size_coverage_percent: total_variants.positive? ? (available_variants * 100.0 / total_variants).round : 0,
+          available_sizes: size_labels(availability.select { |_variant, available| available.positive? }.keys),
+          unavailable_sizes: size_labels(availability.reject { |_variant, available| available.positive? }.keys),
+          cost_coverage_percent: economics[:cost_coverage_percent],
+          minimum_margin_percent: economics[:minimum_margin_percent],
+          inventory_retail_value: economics[:inventory_retail_value],
           product_viewed: 0,
           product_added_to_cart: 0,
           product_removed_from_cart: 0,
@@ -62,6 +77,35 @@ module Pilot
           order_ids: Hash.new { |hash, key| hash[key] = Set.new }
         }
       end
+    end
+
+    def size_labels(variants)
+      variants.filter_map { |variant| variant.option_summary.presence || variant.title.presence }.uniq
+    end
+
+    def product_economics(product, variants, availability)
+      rows = product.raw_attrs.fetch("variant_prices", {})
+      priced = variants.filter_map do |variant|
+        values = rows[variant.external_id] || {}
+        price = decimal(values["price"])
+        cost = decimal(values["unit_cost"])
+        next if price.nil? || price <= 0
+
+        { price: price, cost: cost, inventory: availability.fetch(variant, 0) }
+      end
+      costed = priced.select { |row| row[:cost]&.positive? }
+      margins = costed.map { |row| ((row[:price] - row[:cost]) * 100 / row[:price]).round(2) }
+      {
+        cost_coverage_percent: variants.any? ? (costed.size * 100.0 / variants.size).round : 0,
+        minimum_margin_percent: margins.min,
+        inventory_retail_value: priced.sum { |row| row[:price] * row[:inventory] }
+      }
+    end
+
+    def decimal(value)
+      BigDecimal(value.to_s) if value.present?
+    rescue ArgumentError
+      nil
     end
 
     def aggregate_events!(products, funnel)

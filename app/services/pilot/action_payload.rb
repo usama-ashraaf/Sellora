@@ -19,7 +19,7 @@ module Pilot
     def build
       raise Error, "This recommendation is not connected to a product" if @product.blank?
 
-      if @recommendation.kind == "promotion_opportunity"
+      if @recommendation.kind.in?(%w[promotion_opportunity social_ad_candidate])
         discount_payload
       elsif clear_compare_at_price?
         compare_at_payload
@@ -49,7 +49,8 @@ module Pilot
         "percentage" => percentage,
         "starts_at" => starts_at.iso8601,
         "ends_at" => ends_at.iso8601,
-        "product_ids" => [ @product.external_id ]
+        "product_ids" => [ @product.external_id ],
+        "estimated_discount_cost" => estimated_discount_cost(percentage).to_s
       }
     end
 
@@ -83,6 +84,13 @@ module Pilot
     def default_discount_code
       suffix = @product.external_id.to_s.split("/").last
       "SELLORA#{suffix.to_s.last(6)}"
+    end
+
+    def estimated_discount_cost(percentage)
+      inventory_value = BigDecimal(@recommendation.evidence.fetch("inventory_retail_value", 0).to_s)
+      (inventory_value * percentage / 100).round(2)
+    rescue ArgumentError
+      BigDecimal("0")
     end
 
     def integer_attribute(key, default:)

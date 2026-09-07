@@ -32,7 +32,7 @@ class Shopify::ActionWritesTest < ActiveSupport::TestCase
       }
     }
 
-    result = stub_graphql(response) { Shopify::ProductPatch.apply(shop: @shop, action: action) }
+    result = stub_graphql(response) { with_writes { Shopify::ActionExecutor.apply(shop: @shop, action: action) } }
     assert_equal "New title", @product.reload.title
     assert_equal "Verified", @product.raw_attrs["description"]
     assert_match(/Updated New title/, result[:message])
@@ -55,7 +55,7 @@ class Shopify::ActionWritesTest < ActiveSupport::TestCase
       }
     }
 
-    result = stub_graphql(response) { Shopify::DiscountCreator.apply(shop: @shop, action: action) }
+    result = stub_graphql(response) { with_writes { Shopify::ActionExecutor.apply(shop: @shop, action: action) } }
     assert_equal "gid://shopify/DiscountCodeNode/1", result[:after]["shopify_discount_id"]
     assert_match(/SELLORA10/, result[:message])
   end
@@ -64,6 +64,11 @@ class Shopify::ActionWritesTest < ActiveSupport::TestCase
     @shop.update!(scope: "read_products")
     action = reviewed_action!("product_update", "product_id" => @product.external_id, "title" => "New title")
     assert_raises(Shopify::ProductPatch::Error) { Shopify::ProductPatch.apply(shop: @shop, action: action) }
+  end
+
+  test "action executor refuses writes when the environment gate is closed" do
+    action = reviewed_action!("product_update", "product_id" => @product.external_id, "title" => "New title")
+    assert_raises(Shopify::ActionExecutor::Error) { Shopify::ActionExecutor.apply(shop: @shop, action: action) }
   end
 
   private
@@ -82,5 +87,10 @@ class Shopify::ActionWritesTest < ActiveSupport::TestCase
     fake = Object.new
     fake.define_singleton_method(:graphql) { |_query, _variables| response }
     with_singleton_stub(client, :new, ->(_shop) { fake }) { yield }
+  end
+
+
+  def with_writes(&)
+    with_singleton_stub(ShopifyConfig, :allow_writes?, -> { true }, &)
   end
 end
