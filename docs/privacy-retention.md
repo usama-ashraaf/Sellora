@@ -63,13 +63,13 @@ Re-install starts with an empty local catalog, a new OAuth token, and a new pixe
 
 ## GDPR / Shopify privacy webhooks
 
-Shopify mandatory compliance webhooks (`customers/data_request`, `customers/redact`, `shop/redact`) share the HMAC-verified `/webhooks/shopify/privacy` endpoint and are declared in `shopify.app.toml`. A deployed app version is still required before Shopify delivers them.
+Shopify mandatory compliance webhooks (`customers/data_request`, `customers/redact`, `shop/redact`) share the HMAC-verified `/webhooks/shopify/privacy` endpoint and are declared in `shopify.app.toml`. The declaration was released with Partner app version `sellora-13`; production delivery must be monitored on the stable host before onboarding production merchants.
 
 ## Public launch blockers (privacy)
 
 1. Replace placeholder privacy contact and publish accurate retention copy.
 2. Assign ops owner for pilot request review and deletion requests.
-3. Deploy and verify Shopify privacy/compliance webhooks before production merchants.
+3. Verify privacy/compliance delivery and alerting on the stable production host before production merchants.
 4. Confirm production HTTPS host, backups, and cache (rate limits) configuration.
 
 ## Related

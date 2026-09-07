@@ -38,7 +38,7 @@ Product and cart payloads include Shopify product and variant GIDs. Checkout pay
 
 **Usama approved 2026-09-06.** `write_pixels` and `read_customer_events` are in `ShopifyConfig::PIXEL_SCOPES` / `ALLOWED_SCOPES` and default `SHOPIFY_SCOPES`. Phase B `read_orders` is also implemented; existing installations must reauthorize whenever their granted scope snapshot is missing required scopes.
 
-**Partner Dev Dashboard must also list the two pixel scopes** (Eng will save via browser separately). Rails OAuth alone is not enough if the Partner app version omits them.
+Partner app version `sellora-13` and both Wave 1 OAuth grants include these scopes. Rails OAuth alone is insufficient when a released app version omits them, so repeat the scope and registration checks after future configuration changes.
 
 ## Browser auth model
 
@@ -131,6 +131,8 @@ Existing installs granted Phase-A-only scopes must re-OAuth so the offline token
 | Public HTTPS App URL / tunnel | Required for real storefront hits and Admin embed |
 | Cookie-banner edge cases | Shopify may not load the pixel at all when required purposes are denied; JS gate is defense-in-depth |
 | COD collection | A COD gateway label is not proof of delivery or cash remittance; connect courier or ERP data for that claim |
+
+The 2026-09-08 Wave 1 smoke verified product views and add-to-cart events on both stores, checkout progression on Sapphire-like, canonical product/variant routing, and dashboard funnel totals. See [sellora-m1-m6-live-smoke-2026-09-08.md](./qa/sellora-m1-m6-live-smoke-2026-09-08.md).
 
 ## Example ingest payload (browser)
 

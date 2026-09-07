@@ -14,7 +14,8 @@ Focus: local / Wave 1 development-store completion. Public launch and App Store 
 
 ## M3 — Shopify integration
 - [x] Install, catalog sync, webhooks, pixel ingest/token, orders Phase B, uninstall purge
-- [ ] Live ops: stable Partner URL, CLI deploy, re-OAuth, pixel/compliance storefront smoke (manual)
+- [x] Wave 1 live ops: CLI deploy, re-OAuth, webhooks, pixel registration, storefront funnel smoke, order sync, and reviewed writes
+- [ ] Production ops: replace the temporary Cloudflare URL with a stable HTTPS host
 
 ## M4 — Read-only merchant pilot
 - [x] Daily discovery job + `Pilot::Discover`
@@ -36,7 +37,9 @@ Focus: local / Wave 1 development-store completion. Public launch and App Store 
 - Out of scope: autonomous pricing / advertising
 
 ## Still unfinished (honest)
-- Live Wave 1 pixel deploy + E2E (needs your CLI auth)
-- Live product/discount action smoke on Wave 1
-- Deploy and verify Shopify compliance webhooks before production
-- Public marketing launch
+- Stable production hosting, backups, shared rate-limit cache, and production Shopify URLs
+- Monitored privacy contact, operating owner, and public marketing launch review
+- Shopify App Store submission and production-merchant compliance verification
+- External advertising and courier/ERP connectors, which remain future integrations rather than M1–M6 requirements
+
+Wave 1 live evidence is recorded in [sellora-m1-m6-live-smoke-2026-09-08.md](./qa/sellora-m1-m6-live-smoke-2026-09-08.md).

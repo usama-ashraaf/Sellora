@@ -53,7 +53,7 @@ module Shopify
         "code" => @payload.fetch("code"),
         "startsAt" => @payload.fetch("starts_at"),
         "endsAt" => @payload.fetch("ends_at"),
-        "context" => { "all" => true },
+        "context" => { "all" => "ALL" },
         "customerGets" => {
           "value" => { "percentage" => @payload.fetch("percentage").to_f / 100 },
           "items" => { "products" => { "productsToAdd" => @payload.fetch("product_ids") } }

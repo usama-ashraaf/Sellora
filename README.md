@@ -35,4 +35,4 @@ bin/rails zeitwerk:check
 
 The JavaScript checks use built-in Node functionality and need no npm dependencies. If you precompile assets in development, run `bin/rails assets:clobber` afterward to restore live asset updates.
 
-Pre-production marketing plus a Shopify development-store pilot. Catalog, order, pixel, recommendation, reviewed-action, compliance, retention and bounded-autopilot code is present; stable hosting and live Partner app verification remain required. A monitored privacy contact and hosting ownership must be finalized before launch.
+Pre-production marketing plus a live Shopify development-store pilot. Catalog, order, pixel, recommendation, reviewed-action, compliance, retention and bounded-autopilot flows are implemented and Wave 1 verified. Stable hosting, production operations, App Store review, and a monitored privacy contact must be finalized before public launch. See the [2026-09-08 live smoke report](docs/qa/sellora-m1-m6-live-smoke-2026-09-08.md).

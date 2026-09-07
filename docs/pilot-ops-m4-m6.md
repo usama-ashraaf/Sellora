@@ -15,7 +15,7 @@ Lean read-only pilot → reviewed actions → bounded autopilot on the existing 
 
 After catalog sync, `Shopify::CatalogSyncJob` also runs audit + recommendations.
 
-Honesty: recommendations tell the team what to **verify**. No invented garment facts. Pixel traffic signals are incomplete.
+Recommendations use product-level storefront intent, synchronized orders and outcomes, inventory, size coverage, and cost/margin data when available. They tell the merchant what evidence to verify and do not invent garment facts.
 
 ## M5 — Reviewed actions
 
@@ -38,7 +38,7 @@ Rake: `sellora:propose_action[id]`, `sellora:apply_action[id]`
 | Monitoring | Durable `AutopilotRun` rows and recent-run dashboard history |
 | Rake | `sellora:autopilot[shop]`, `sellora:autopilot_kill[shop]` |
 
-No autonomous pricing or advertising.
+Autopilot cannot set product prices or launch advertising campaigns. It can execute only merchant-allowed reviewed action kinds within the configured evidence, inventory, margin, cooldown, daily-cap, and kill-switch controls.
 
 ## Uninstall
 

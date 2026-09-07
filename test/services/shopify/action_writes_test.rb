@@ -55,9 +55,13 @@ class Shopify::ActionWritesTest < ActiveSupport::TestCase
       }
     }
 
-    result = stub_graphql(response) { with_writes { Shopify::ActionExecutor.apply(shop: @shop, action: action) } }
+    variables = nil
+    result = stub_graphql(response, capture: ->(value) { variables = value }) do
+      with_writes { Shopify::ActionExecutor.apply(shop: @shop, action: action) }
+    end
     assert_equal "gid://shopify/DiscountCodeNode/1", result[:after]["shopify_discount_id"]
     assert_match(/SELLORA10/, result[:message])
+    assert_equal "ALL", variables.dig("input", "context", "all")
   end
 
   test "does not call Shopify without the required scope" do
@@ -82,10 +86,13 @@ class Shopify::ActionWritesTest < ActiveSupport::TestCase
     )
   end
 
-  def stub_graphql(response)
+  def stub_graphql(response, capture: nil)
     client = Shopify::AdminClient
     fake = Object.new
-    fake.define_singleton_method(:graphql) { |_query, _variables| response }
+    fake.define_singleton_method(:graphql) do |_query, variables|
+      capture&.call(variables)
+      response
+    end
     with_singleton_stub(client, :new, ->(_shop) { fake }) { yield }
   end
 

@@ -63,15 +63,15 @@ Same write scopes as Phase C; no new scopes expected. Controls are product/ops (
 - Broad `read_all_orders` legacy if avoidable — prefer modern `read_orders` with least data
 - Any scope that exposes storefront private credentials into JS (never)
 
-## Current decision (2026-09-06)
-- **Installed / enabled for Wave 1:** Phase A + pixel + Phase B `read_orders`  
-- **OAuth ceiling:** `ShopifyConfig::ALLOWED_SCOPES` includes reviewed product and discount writes; existing stores must reauthorize before those scopes are granted
+## Current decision (2026-09-08)
+- **Installed / enabled for Wave 1:** Phase A + pixel + Phase B `read_orders` + Phase C `write_products` and `write_discounts`
+- **OAuth grants verified:** both Wave 1 stores report every configured scope; Shopify also reports the related `read_pixels` and `read_discounts` scopes
 - **Order sync:** see [order-sync.md](./order-sync.md)  
-- **Implemented but not live-verified:** Phase C reviewed actions and M6 bounded autopilot
-- Eng must verify exact scope strings against current Shopify Admin API version before flipping in Partners.
+- **Live-verified:** reviewed product repair, percentage discount creation, and a bounded autopilot run followed by the kill switch
+- **Safety state after smoke:** autopilot stopped and local write gate disabled
 
 ## Install checklist (Eng)
-1. Set Wave 1 scopes on Partner app (Phase A + pixel pair)  
-2. Install on Outfitters-like + Sapphire-like dev stores (re-OAuth so grants include pixel)  
-3. Confirm OAuth grant + webhook + web pixel registration (Rails)  
-4. Document store URLs + install status in `docs/dev-stores.md`
+1. Set the required scopes on the Partner app.
+2. Re-OAuth Outfitters-like + Sapphire-like after any scope change.
+3. Confirm OAuth grants, webhook registrations, and web pixel registrations.
+4. Keep the stable production URL synchronized across hosting, Partner configuration, and `shopify.app.toml`.
