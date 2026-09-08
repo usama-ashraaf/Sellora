@@ -91,6 +91,38 @@ class Audit::RunnerTest < ActiveSupport::TestCase
     assert_equal 0, forced.skipped
   end
 
+  test "resolves a content finding after the source issue is corrected" do
+    product = @shop.catalog_products.create!(external_id: "p-resolve", title: "Gap Tee", status: "active")
+    %w[S L].each_with_index do |size, index|
+      product.catalog_variants.create!(external_id: "vr#{index}", title: size, option_summary: size, sku: "SF-R-#{size}")
+    end
+    Audit::Runner.call(shop: @shop, rule_set: @rule_set)
+    finding = AuditFinding.for_shop(@shop).joins(:audit_rule).find_by!(audit_rules: { rule_key: "size_gap" })
+
+    product.catalog_variants.create!(external_id: "vr-m", title: "M", option_summary: "M", sku: "SF-R-M")
+    Audit::Runner.call(shop: @shop, rule_set: @rule_set)
+
+    assert_equal "resolved", finding.reload.status
+  end
+
+  test "resolves a freshness finding while unchanged content is skipped" do
+    product = @shop.catalog_products.create!(
+      external_id: "p-fresh-resolve",
+      title: "Sale Tee",
+      status: "active",
+      raw_attrs: { "variant_prices" => { "v-fresh" => { "price" => 100, "compare_at_price" => 90 } } }
+    )
+    product.catalog_variants.create!(external_id: "v-fresh", title: "M", option_summary: "M", sku: "SF-FRESH-M")
+    Audit::Runner.call(shop: @shop, rule_set: @rule_set)
+    finding = AuditFinding.for_shop(@shop).joins(:audit_rule).find_by!(audit_rules: { rule_key: "compare_at_anomaly" })
+
+    product.update!(raw_attrs: product.raw_attrs.deep_merge("variant_prices" => { "v-fresh" => { "compare_at_price" => nil } }))
+    result = Audit::Runner.call(shop: @shop, rule_set: @rule_set)
+
+    assert_operator result.skipped, :>=, 1
+    assert_equal "resolved", finding.reload.status
+  end
+
   test "rejects shop without account" do
     assert_raises(ArgumentError, match: /no account/) do
       Audit::Runner.call(shop: Shop.new(shopify_domain: "orphan-audit.myshopify.com"), rule_set: @rule_set)

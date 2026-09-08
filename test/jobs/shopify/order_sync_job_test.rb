@@ -8,7 +8,12 @@ class Shopify::OrderSyncJobTest < ActiveJob::TestCase
     shop = Shop.create!(shopify_domain: "order-job.myshopify.com", access_token: "t", account: account)
     product = shop.catalog_products.create!(external_id: "p1", title: "Kurta", status: "active")
     variant = product.catalog_variants.create!(external_id: "v1", title: "M")
-    variant.catalog_inventory_levels.create!(location_external_id: "l1", available: 4)
+    variant.catalog_inventory_levels.create!(location_external_id: "l1", available: 10)
+    product.update!(raw_attrs: {
+                      "variant_prices" => {
+                        variant.external_id => { "price" => "2200", "unit_cost" => "900", "cost_currency" => "PKR" }
+                      }
+                    })
     5.times do
       Activity::Ingest.call(account: account, shop: shop, event_name: "product_viewed",
                             occurred_at: Time.current, payload: { "product_id" => product.external_id }, source: "web_pixel")
@@ -19,7 +24,8 @@ class Shopify::OrderSyncJobTest < ActiveJob::TestCase
     original = Shopify::OrderSync.method(:call)
     Shopify::OrderSync.define_singleton_method(:call, lambda { |_shop|
       order = shop.commerce_orders.create!(account: account, external_id: "o1", financial_status: "paid", processed_at: Time.current)
-      order.commerce_order_lines.create!(external_id: "line1", product_external_id: product.external_id, quantity: 1)
+      order.commerce_order_lines.create!(external_id: "line1", product_external_id: product.external_id,
+                                         variant_external_id: variant.external_id, quantity: 1, price: 2200)
     })
     Shopify::OrderSyncJob.perform_now(shop.id)
 

@@ -285,7 +285,8 @@ module Pilot
     end
 
     def currency_for(product)
-      shop_currency || product.raw_attrs.dig("variant_prices")&.values&.filter_map { |row| row["cost_currency"].presence }&.first
+      product.raw_attrs["currency"].presence || shop_currency ||
+        product.raw_attrs.dig("variant_prices")&.values&.filter_map { |row| row["cost_currency"].presence }&.first
     end
 
     def shop_currency

@@ -91,6 +91,19 @@ class Pilot::PromotionReadinessTest < ActiveSupport::TestCase
     assert_equal 0, @shop.promotion_decisions.count
   end
 
+  test "uses the current catalog currency ahead of historical order currency" do
+    product, variants = create_product("Current Currency Kurti", [ 30 ])
+    product.update!(raw_attrs: product.raw_attrs.merge("currency" => "PKR"))
+    order = @shop.commerce_orders.create!(account: @account, external_id: "old-usd-order", financial_status: "paid",
+                                          currency: "USD", processed_at: Time.current)
+    order.commerce_order_lines.create!(external_id: "old-usd-line", product_external_id: product.external_id,
+                                       variant_external_id: variants.first.external_id, quantity: 1, price: 3000)
+
+    decision = Pilot::PromotionReadiness.call(shop: @shop).find { |row| row.catalog_product == product }
+
+    assert_equal "PKR", decision.metrics["currency"]
+  end
+
   private
 
   def create_product(title, inventory, with_costs: true)

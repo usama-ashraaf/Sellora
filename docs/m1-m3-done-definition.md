@@ -42,4 +42,4 @@ Focus: local / Wave 1 development-store completion. Public launch and App Store 
 - Shopify App Store submission and production-merchant compliance verification
 - External advertising and courier/ERP connectors, which remain future integrations rather than M1–M6 requirements
 
-Wave 1 live evidence is recorded in [sellora-m1-m6-live-smoke-2026-09-08.md](./qa/sellora-m1-m6-live-smoke-2026-09-08.md).
+Wave 1 live evidence is recorded in the [Sapphire-reference E2E sign-off](./qa/sapphire-reference-e2e-signoff-2026-09-08.md).

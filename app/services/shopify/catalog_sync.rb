@@ -85,11 +85,14 @@ module Shopify
         ]
       end
       description_html = node["descriptionHtml"].to_s
+      description = ActionView::Base.full_sanitizer.sanitize(description_html)
       product.raw_attrs = {
         "platform" => "shopify",
         "status" => node["status"],
+        "currency" => current_shop_currency,
         "description_html" => description_html,
-        "description" => ActionView::Base.full_sanitizer.sanitize(description_html),
+        "description" => description,
+        "garment_attrs" => garment_attributes_from(description_html),
         "variant_prices" => variant_prices
       }
       product.save!
@@ -155,6 +158,30 @@ module Shopify
 
     def normalize_status(raw)
       raw.to_s.downcase.presence || "active"
+    end
+
+    def garment_attributes_from(description_html)
+      labels = {
+        "fit" => "fit",
+        "fabric" => "fabric",
+        "piece count" => "piece_count",
+        "care" => "care",
+        "stitched" => "stitched"
+      }
+      labeled_text = description_html.to_s
+                                     .gsub(/<br\s*\/?\s*>/i, "\n")
+                                     .gsub(%r{</(?:p|div|li)>}i, "\n")
+      labeled_text = ActionView::Base.full_sanitizer.sanitize(labeled_text)
+      labeled_text.each_line.filter_map do |line|
+        match = line.strip.match(/\A(Fit|Fabric|Piece count|Care|Stitched):\s*(.+)\z/i)
+        next unless match
+
+        [ labels.fetch(match[1].downcase), match[2].strip ]
+      end.to_h
+    end
+
+    def current_shop_currency
+      @client.shop_currency if @client.respond_to?(:shop_currency)
     end
 
     def reconcile_removed_products!

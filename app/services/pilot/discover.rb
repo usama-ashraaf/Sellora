@@ -19,8 +19,8 @@ module Pilot
       sync_result = @sync ? Shopify::CatalogSync.call(@shop) : { products: @shop.catalog_products.count, shop_id: @shop.id }
       order_sync_result = sync_orders
       audit_result = Audit::Runner.call(shop: @shop)
-      recs = Recommendations.call(shop: @shop)
       decisions = PromotionReadiness.call(shop: @shop)
+      recs = Recommendations.call(shop: @shop, promotion_decisions: decisions)
       @shop.update_columns(last_discovered_at: Time.current)
 
       {

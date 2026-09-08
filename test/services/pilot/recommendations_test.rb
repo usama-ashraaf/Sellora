@@ -104,21 +104,70 @@ class Pilot::RecommendationsTest < ActiveSupport::TestCase
     assert_not @shop.recommendations.exists?(kind: "restock_before_promotion", catalog_product: refunded, status: "open")
   end
 
+  test "dismisses an open recommendation when its audit finding is resolved" do
+    product = product_with_inventory("p-resolved", "Resolved Finding Product", 12)
+    rule = @rules.audit_rules.find_by!(rule_key: "missing_description")
+    finding = @shop.audit_findings.create!(
+      account: @account,
+      audit_rule: rule,
+      catalog_product: product,
+      severity: rule.severity,
+      status: "open",
+      message: "Description is missing",
+      suggested_action: "Add a verified description"
+    )
+    recommendation = Pilot::Recommendations.call(shop: @shop).find { |row| row.audit_finding_id == finding.id }
+
+    finding.update!(status: "resolved")
+    Pilot::Recommendations.call(shop: @shop)
+
+    assert_equal "dismissed", recommendation.reload.status
+  end
+
+  test "does not reopen a generated recommendation after its reviewed action was applied" do
+    product = product_with_inventory("p-applied", "Applied Seller", 30)
+    create_paid_sales(product, orders: 2, quantity: 1)
+
+    Pilot::Recommendations.call(shop: @shop)
+    recommendation = @shop.recommendations.find_by!(kind: "social_ad_candidate", catalog_product: product)
+    recommendation.reviewed_actions.create!(
+      account: @account,
+      shop: @shop,
+      action_kind: "discount_code_create",
+      status: "applied"
+    )
+    recommendation.update!(status: "dismissed")
+
+    ingest("product_viewed", product)
+    Pilot::Recommendations.call(shop: @shop)
+
+    assert_equal "dismissed", recommendation.reload.status
+    assert_not @shop.recommendations.open_items.exists?(kind: "social_ad_candidate", catalog_product: product)
+  end
+
   private
 
   def product_with_inventory(external_id, title, available)
     product = @shop.catalog_products.create!(external_id: external_id, title: title, status: "active")
     variant = product.catalog_variants.create!(external_id: "#{external_id}-v", title: "M")
     variant.catalog_inventory_levels.create!(location_external_id: "location-1", available: available)
+    product.update!(raw_attrs: {
+                      "variant_prices" => {
+                        variant.external_id => { "price" => "2200", "unit_cost" => "900", "cost_currency" => "PKR" }
+                      }
+                    })
     product
   end
 
   def product_with_size_inventory(external_id, title, quantities)
     product = @shop.catalog_products.create!(external_id: external_id, title: title, status: "active")
+    prices = {}
     %w[S M L].zip(quantities).each_with_index do |(size, available), index|
       variant = product.catalog_variants.create!(external_id: "#{external_id}-v#{index}", title: size, option_summary: size)
       variant.catalog_inventory_levels.create!(location_external_id: "location-1", available: available)
+      prices[variant.external_id] = { "price" => "2200", "unit_cost" => "900", "cost_currency" => "PKR" }
     end
+    product.update!(raw_attrs: { "variant_prices" => prices })
     product
   end
 

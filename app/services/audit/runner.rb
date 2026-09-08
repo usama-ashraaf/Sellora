@@ -56,9 +56,11 @@ module Audit
       if content_unchanged
         @skipped += 1
         evaluate_freshness_rules!(product, rules)
+        resolve_stale_findings!(product, rules.slice(*FRESHNESS_RULES))
       else
         evaluate_content_rules!(product, rules)
         evaluate_freshness_rules!(product, rules)
+        resolve_stale_findings!(product, rules.slice(*(CONTENT_RULES + FRESHNESS_RULES)))
         product.update_columns(
           content_fingerprint: fingerprint,
           rule_set_version: @rule_set.version,
@@ -224,13 +226,26 @@ module Audit
       )
       finding.account = @account
       finding.severity = rule.severity
-      finding.status = "open" if finding.new_record?
+      finding.status = "open" if finding.new_record? || finding.status == "resolved"
       finding.message = message
       finding.evidence = evidence
       finding.suggested_action = suggested_action
       finding.save!
       @findings << finding
       finding
+    end
+
+    def resolve_stale_findings!(product, evaluated_rules)
+      rule_ids = evaluated_rules.values.compact.map(&:id)
+      return if rule_ids.empty?
+
+      active_ids = @findings.filter_map do |finding|
+        finding.id if finding.catalog_product_id == product.id && rule_ids.include?(finding.audit_rule_id)
+      end
+      stale = product.shop.audit_findings
+                     .where(catalog_product_id: product.id, audit_rule_id: rule_ids, status: %w[open acknowledged])
+      stale = stale.where.not(id: active_ids) if active_ids.any?
+      stale.update_all(status: "resolved", updated_at: Time.current)
     end
   end
 end

@@ -17,7 +17,7 @@ class Pilot::DiscoverTest < ActiveSupport::TestCase
     with_stub(Shopify::CatalogSync, :call, ->(_shop) { calls << :catalog; { products: 2, shop_id: shop.id } }) do
       with_stub(Shopify::OrderSync, :call, ->(_shop) { calls << :orders; { orders: 1, shop_id: shop.id } }) do
         with_stub(Audit::Runner, :call, ->(shop:) { calls << :audit; audit_result }) do
-          with_stub(Pilot::Recommendations, :call, ->(shop:) { calls << :recommendations; [] }) do
+          with_stub(Pilot::Recommendations, :call, ->(shop:, promotion_decisions:) { calls << :recommendations; [] }) do
             with_stub(Pilot::PromotionReadiness, :call, ->(shop:) { calls << :promotion_readiness; [] }) do
               result = Pilot::Discover.call(shop: @shop)
               assert_equal 1, result.dig(:order_sync, :orders)
@@ -27,7 +27,7 @@ class Pilot::DiscoverTest < ActiveSupport::TestCase
       end
     end
 
-    assert_equal %i[catalog orders audit recommendations promotion_readiness], calls
+    assert_equal %i[catalog orders audit promotion_readiness recommendations], calls
   end
 
   test "does not request orders when read_orders was not granted" do
@@ -35,7 +35,7 @@ class Pilot::DiscoverTest < ActiveSupport::TestCase
     shop = @shop
     with_stub(Shopify::CatalogSync, :call, ->(_shop) { { products: 0, shop_id: shop.id } }) do
       with_stub(Audit::Runner, :call, ->(shop:) { Struct.new(:findings, :skipped).new([], 0) }) do
-        with_stub(Pilot::Recommendations, :call, ->(shop:) { [] }) do
+        with_stub(Pilot::Recommendations, :call, ->(shop:, promotion_decisions:) { [] }) do
           with_stub(Pilot::PromotionReadiness, :call, ->(shop:) { [] }) do
             result = Pilot::Discover.call(shop: @shop)
             assert_equal true, result.dig(:order_sync, :skipped)

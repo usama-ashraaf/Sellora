@@ -15,6 +15,7 @@ module Shopify
     # Variants and inventoryLevels are paginated to completion after each product page.
     PRODUCTS_QUERY = <<~GRAPHQL.freeze
       query CatalogProducts($cursor: String) {
+        shop { currencyCode }
         products(first: 10, after: $cursor) {
           pageInfo {
             hasNextPage
@@ -67,6 +68,8 @@ module Shopify
         }
       }
     GRAPHQL
+
+    attr_reader :shop_currency
 
     VARIANTS_QUERY = <<~GRAPHQL.freeze
       query CatalogProductVariants($productId: ID!, $cursor: String) {
@@ -147,6 +150,7 @@ module Shopify
 
       loop do
         payload = graphql(PRODUCTS_QUERY, { "cursor" => cursor })
+        @shop_currency = payload.dig("shop", "currencyCode").presence || @shop_currency
         connection = payload.fetch("products")
         nodes = connection.fetch("nodes").map { |node| expand_product_node!(node) }
         yield nodes

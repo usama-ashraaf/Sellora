@@ -13,8 +13,8 @@ module Shopify
       return if shop.nil? || !shop.installed?
 
       OrderSync.call(shop)
-      Pilot::Recommendations.call(shop: shop)
-      Pilot::PromotionReadiness.call(shop: shop)
+      decisions = Pilot::PromotionReadiness.call(shop: shop)
+      Pilot::Recommendations.call(shop: shop, promotion_decisions: decisions)
     end
   end
 end

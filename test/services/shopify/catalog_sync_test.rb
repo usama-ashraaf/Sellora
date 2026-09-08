@@ -56,6 +56,7 @@ class Shopify::CatalogSyncTest < ActiveSupport::TestCase
     assert_equal "linen-kurta", product.handle
     assert_equal "active", product.status
     assert_equal "shopify", product.raw_attrs["platform"]
+    assert_equal "PKR", product.raw_attrs["currency"]
 
     variant = product.catalog_variants.find_by!(external_id: "gid://shopify/ProductVariant/201")
     assert_equal "LK-S-BLU", variant.sku
@@ -68,6 +69,20 @@ class Shopify::CatalogSyncTest < ActiveSupport::TestCase
     assert_equal 2, levels.size
     assert_equal [ "gid://shopify/Location/1", "gid://shopify/Location/2" ], levels.map(&:location_external_id)
     assert_equal [ 12, 3 ], levels.map(&:available)
+  end
+
+  test "extracts only explicitly labeled garment attributes from the product description" do
+    node = product_node(
+      id: "gid://shopify/Product/attrs",
+      title: "Cotton Shirt",
+      description_html: "<p>Fit: Slim<br>Fabric: Lawn<br>Piece count: 1<br>Stitched: Yes</p><p>Soft summer shirt.</p>"
+    )
+
+    stub_admin_pages(@shop, [ [ node ] ]) { Shopify::CatalogSync.call(@shop) }
+
+    attrs = @shop.catalog_products.find_by!(external_id: node.fetch("id")).raw_attrs.fetch("garment_attrs")
+    assert_equal({ "fit" => "Slim", "fabric" => "Lawn", "piece_count" => "1", "stitched" => "Yes" }, attrs)
+    assert_not attrs.key?("care")
   end
 
   test "reconciles removed products and is idempotent on re-sync" do
@@ -195,7 +210,7 @@ class Shopify::CatalogSyncTest < ActiveSupport::TestCase
     end
   end
 
-  def product_node(id:, title:, handle: "handle", status: "ACTIVE", variants: nil)
+  def product_node(id:, title:, handle: "handle", status: "ACTIVE", variants: nil, description_html: nil)
     variants ||= [
       variant_node(
         id: "#{id}-v1",
@@ -211,6 +226,7 @@ class Shopify::CatalogSyncTest < ActiveSupport::TestCase
       "title" => title,
       "handle" => handle,
       "status" => status,
+      "descriptionHtml" => description_html,
       "variants" => { "nodes" => variants }
     }
   end
@@ -244,6 +260,7 @@ class Shopify::CatalogSyncTest < ActiveSupport::TestCase
     client.define_singleton_method(:each_product_page) do |&block|
       page_enum.each { |nodes| block.call(nodes) }
     end
+    client.define_singleton_method(:shop_currency) { "PKR" }
 
     original = Shopify::AdminClient.method(:new)
     Shopify::AdminClient.define_singleton_method(:new) do |s|

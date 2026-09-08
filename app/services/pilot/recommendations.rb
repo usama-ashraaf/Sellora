@@ -6,20 +6,21 @@ module Pilot
     SIGNAL_KINDS = %w[traffic_intent conversion_review promotion_opportunity].freeze
     GROWTH_KINDS = %w[featured_product social_ad_candidate restock_before_promotion].freeze
     MIN_PRODUCT_VIEWS = 5
-    MIN_PROMOTION_INVENTORY = 20
-    MIN_SIZE_COVERAGE_PERCENT = 70
-    def self.call(shop:)
-      new(shop: shop).call
+    def self.call(shop:, promotion_decisions: nil)
+      new(shop: shop, promotion_decisions: promotion_decisions).call
     end
 
-    def initialize(shop:)
+    def initialize(shop:, promotion_decisions: nil)
       @shop = shop
       raise ArgumentError, "shop has no account" if shop.account.blank?
 
       @account = shop.account
+      @promotion_decisions = promotion_decisions || PromotionReadiness.call(shop: shop)
+      @promotion_decisions_by_product_id = @promotion_decisions.index_by(&:catalog_product_id)
     end
 
     def call
+      dismiss_resolved_finding_recommendations!
       rows = []
       @shop.audit_findings.open_findings.includes(:audit_rule, :catalog_product).find_each do |finding|
         rows << upsert_from_finding!(finding)
@@ -30,6 +31,13 @@ module Pilot
     end
 
     private
+
+    def dismiss_resolved_finding_recommendations!
+      @shop.recommendations
+           .joins(:audit_finding)
+           .where(status: %w[open acknowledged], audit_findings: { status: %w[resolved dismissed] })
+           .update_all(status: "dismissed", updated_at: Time.current)
+    end
 
     def upsert_from_finding!(finding)
       kind = kind_for(finding.audit_rule.rule_key)
@@ -61,7 +69,7 @@ module Pilot
     def signal_rows!
       signals = Pilot::CommerceSignals.call(shop: @shop)[:products]
       active = signals.filter_map do |product_signals|
-        kind = signal_kind(product_signals)
+        kind = signal_kind(product_signals, promotion_decision_for(product_signals))
         next unless kind
 
         upsert_signal!(product_signals, kind)
@@ -74,22 +82,24 @@ module Pilot
 
     def growth_rows!(signals)
       sellers = signals.select { |row| row[:paid_orders].positive? }
-      ready = sellers.select { |row| promotion_ready?(row) }
+      ready = sellers.select { |row| promotion_decision_for(row)&.status == "promote" }
       rows = []
       rows << upsert_growth!(ready.max_by { |row| featured_score(row) }, "featured_product") if ready.any?
       rows << upsert_growth!(ready.max_by { |row| social_score(row) }, "social_ad_candidate") if ready.any?
-      restock = sellers.reject { |row| inventory_ready?(row) }.max_by { |row| demand_score(row) }
+      restock = sellers.select { |row| inventory_constrained?(promotion_decision_for(row)) }.max_by { |row| demand_score(row) }
       rows << upsert_growth!(restock, "restock_before_promotion") if restock
       rows
     end
 
-    def promotion_ready?(signals)
-      inventory_ready?(signals) && signals[:cancelled_orders].zero? && signals[:refunded_orders].zero?
+    def promotion_decision_for(signals)
+      @promotion_decisions_by_product_id[signals[:product].id]
     end
 
-    def inventory_ready?(signals)
-      signals[:inventory] >= MIN_PROMOTION_INVENTORY &&
-        signals[:size_coverage_percent] >= MIN_SIZE_COVERAGE_PERCENT
+    def inventory_constrained?(decision)
+      return false unless decision
+
+      decision.metrics["safe_order_capacity"].to_i < @shop.promotion_policy.minimum_safe_orders ||
+        decision.metrics["size_coverage_percent"].to_i < 80
     end
 
     def demand_score(signals)
@@ -117,15 +127,16 @@ module Pilot
       )
       rec.account = @account
       rec.priority = kind == "restock_before_promotion" ? "high" : "medium"
-      rec.status = "open"
+      activate_generated_recommendation!(rec)
       rec.catalog_product = signals[:product]
       rec.title, rec.rationale, rec.suggested_action = growth_copy(signals, kind)
+      decision = promotion_decision_for(signals)
       rec.evidence = signal_evidence(signals).merge(
         "demand_score" => demand_score(signals).round(1),
         "featured_score" => featured_score(signals).round(1),
         "social_ad_score" => social_score(signals).round(1),
-        "minimum_promotion_inventory" => MIN_PROMOTION_INVENTORY,
-        "minimum_size_coverage_percent" => MIN_SIZE_COVERAGE_PERCENT
+        "promotion_status" => decision&.status,
+        "promotion_score" => decision&.score
       )
       rec.save!
       rec
@@ -148,11 +159,10 @@ module Pilot
       end
     end
 
-    def signal_kind(signals)
+    def signal_kind(signals, decision)
       return if signals[:product_viewed] < MIN_PRODUCT_VIEWS
       return "traffic_intent" if signals[:product_added_to_cart].zero?
-      return "promotion_opportunity" if signals[:paid_orders].positive? && signals[:inventory].positive? &&
-                                        signals[:cancelled_orders].zero? && signals[:refunded_orders].zero?
+      return "promotion_opportunity" if signals[:paid_orders].positive? && decision&.status == "promote"
       "conversion_review" if signals[:paid_orders].zero?
     end
 
@@ -165,7 +175,7 @@ module Pilot
       )
       rec.account = @account
       rec.priority = kind == "promotion_opportunity" ? "high" : "medium"
-      rec.status = "open"
+      activate_generated_recommendation!(rec)
       rec.catalog_product = signals[:product]
       rec.title, rec.rationale, rec.suggested_action = recommendation_copy(signals, kind)
       rec.evidence = signal_evidence(signals)
@@ -196,6 +206,14 @@ module Pilot
         "orders_window_days" => 30,
         "limitation" => "storefront events are consent-limited; revenue is not profit; COD collection is not verified"
       )
+    end
+
+    def activate_generated_recommendation!(recommendation)
+      return recommendation.status = "open" if recommendation.new_record? || recommendation.status == "open"
+      return unless recommendation.status == "dismissed"
+      return if recommendation.reviewed_actions.where(status: %w[applied rejected]).exists?
+
+      recommendation.status = "open"
     end
   end
 end
