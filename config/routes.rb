@@ -18,6 +18,8 @@ Rails.application.routes.draw do
   patch "shopify/autopilot", to: "shopify/autopilot_policies#update", as: :shopify_autopilot_policy
   post "shopify/autopilot/kill", to: "shopify/autopilot_policies#kill", as: :kill_shopify_autopilot
   post "shopify/autopilot/run", to: "shopify/autopilot_policies#run", as: :run_shopify_autopilot
+  patch "shopify/promotion-planner", to: "shopify/promotion_policies#update", as: :shopify_promotion_policy
+  post "shopify/promotion-planner/refresh", to: "shopify/promotion_policies#refresh", as: :refresh_shopify_promotion_planner
   get "shopify/install", to: "shopify/auth#install", as: :shopify_install
   get "auth/shopify/callback", to: "shopify/auth#callback", as: :shopify_callback
 

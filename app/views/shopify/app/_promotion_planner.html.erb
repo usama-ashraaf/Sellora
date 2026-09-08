@@ -1,0 +1,80 @@
+<div class="page-heading">
+  <div><h1>Promotion planner</h1><p class="muted">Choose what to feature or advertise without creating demand for sizes that will run out first.</p></div>
+  <%= button_to "Refresh decisions", refresh_shopify_promotion_planner_path, method: :post, params: { host: @host }, form: { data: { authenticated_action: true } }, class: "button primary" %>
+</div>
+<div id="action-feedback" class="feedback" role="status" hidden></div>
+
+<section class="card planner-intro">
+  <div><span class="badge ready">Demand capacity</span><h2>Promotion decisions use the weakest demanded size</h2><p>Sellora combines consented storefront interest, paid order lines, variant inventory, costs, refunds, cancellations, and Shopify fulfillment status. A large total stock count cannot hide an out-of-stock popular size.</p></div>
+  <div class="planner-legend"><span><i class="legend-dot ready"></i><strong>Promote</strong> Inventory and economics clear your limits.</span><span><i class="legend-dot warning"></i><strong>Limit</strong> Promote carefully after reviewing the flagged constraint.</span><span><i class="legend-dot danger"></i><strong>Block</strong> Do not add demand until the hard constraint is fixed.</span></div>
+</section>
+
+<details class="card assumptions" style="margin-top:1rem">
+  <summary>How the score and confidence work</summary>
+  <p class="form-help">Every product starts at 100. Sellora subtracts for missing size coverage, an out-of-stock popular variant, low safe-order capacity, missing demand or costs, short runway, low margin, cancellations, and refunds. High confidence requires at least five paid units, five storefront events, and complete demanded-variant costs; sparse or fallback data lowers confidence.</p>
+</details>
+
+<details class="card assumptions" style="margin-top:1rem">
+  <summary>Campaign assumptions</summary>
+  <p class="form-help">Money inputs use your Shopify store currency. These values make the estimate specific to your store. Sellora never launches an ad campaign from this planner.</p>
+  <%= form_with model: @promotion_policy, url: shopify_promotion_policy_path, method: :patch, data: { authenticated_action: true }, class: "action-form" do |form| %>
+    <%= hidden_field_tag :host, @host %>
+    <div class="field-grid">
+      <label>Target ROAS<%= form.number_field :target_roas, min: 0.01, step: 0.01, required: true %></label>
+      <label>Target acquisition cost (optional)<%= form.number_field :target_acquisition_cost, min: 0, step: 0.01, placeholder: "Leave blank to use margin and ROAS" %></label>
+      <label>Shipping cost per order<%= form.number_field :shipping_cost_per_order, min: 0, step: 0.01, required: true %></label>
+      <label>Extra cost of a failed COD order<%= form.number_field :cod_failure_cost, min: 0, step: 0.01, required: true %></label>
+      <label>Expected COD failure rate %<%= form.number_field :expected_cod_failure_rate_percent, min: 0, max: 100, step: 0.01, required: true %></label>
+      <label>Desired inventory runway days<%= form.number_field :desired_runway_days, min: 1, required: true %></label>
+      <label>Minimum contribution margin %<%= form.number_field :minimum_margin_percent, min: 0, max: 100, required: true %></label>
+      <label>Minimum safe additional orders<%= form.number_field :minimum_safe_orders, min: 1, required: true %></label>
+    </div>
+    <div class="actions"><%= form.submit "Save and recalculate", class: "button primary" %></div>
+  <% end %>
+</details>
+
+<section class="planner-grid" style="margin-top:1rem">
+  <% @promotion_decisions.each do |decision| %>
+    <% metrics = decision.metrics %>
+    <% product = decision.catalog_product %>
+    <% recommendation = @promotion_recommendations[product.id] %>
+    <article class="card planner-card <%= promotion_status_class(decision.status) %>">
+      <div class="recommendation-top">
+        <div><span class="badge <%= promotion_status_class(decision.status) %>"><%= decision.status %></span><h2 style="margin-top:.5rem"><%= product.title %></h2><p class="muted"><%= decision.confidence.titleize %> confidence · refreshed <%= time_ago_in_words(decision.generated_at) %> ago</p></div>
+        <div class="readiness-score"><strong><%= decision.score %></strong><span>/ 100</span></div>
+      </div>
+      <div class="planner-metrics">
+        <div><span>Safe demand</span><strong><%= metrics["safe_order_capacity"] %> orders</strong></div>
+        <div><span>Runway</span><strong><%= metrics["estimated_runway_days"] ? "#{metrics['estimated_runway_days']} days" : "Needs demand data" %></strong></div>
+        <div><span>Spend ceiling</span><strong><%= promotion_money(metrics["promotion_spend_ceiling"], metrics["currency"]) %></strong></div>
+        <div><span>Contribution margin</span><strong><%= metrics["estimated_contribution_margin_percent"] ? "#{metrics['estimated_contribution_margin_percent']}%" : "Needs costs" %></strong></div>
+        <div><span>Size coverage</span><strong><%= metrics["size_coverage_percent"] %>%</strong></div>
+        <div><span>Paid outcomes</span><strong><%= metrics["paid_orders_30d"] %> orders</strong></div>
+      </div>
+      <ul class="decision-reasons"><% decision.reasons.each do |reason| %><li><%= reason %></li><% end %></ul>
+      <div class="next-step"><strong>Suggested use</strong><%= metrics["recommended_use"] %></div>
+
+      <details class="variant-capacity">
+        <summary>Size and variant capacity</summary>
+        <div class="table-wrap"><table><thead><tr><th>Variant</th><th>Demand</th><th>Stock</th><th>Capacity</th></tr></thead><tbody>
+          <% Array(metrics["variant_capacity"]).sort_by { |row| -row["demand_share_percent"].to_f }.each do |row| %>
+            <tr><td><strong><%= row["title"] %></strong><% if row["sku"].present? %><br><span class="muted"><%= row["sku"] %></span><% end %></td><td><%= row["demand_share_percent"] %>%</td><td><%= row["inventory"] %></td><td><%= row["capacity_orders"] %> orders</td></tr>
+          <% end %>
+        </tbody></table></div>
+      </details>
+
+      <% if metrics["substitute_product_id"].present? %>
+        <div class="substitute"><strong>Safer substitute</strong><span><%= metrics["substitute_product_title"] %> · <%= metrics["substitute_status"].titleize %> · <%= metrics["substitute_score"] %>/100</span></div>
+      <% end %>
+
+      <div class="actions">
+        <% if recommendation %><%= link_to "Prepare promotion", shopify_embedded_app_path(shop: @shop_domain, host: @host, section: "recommendations", anchor: "recommendation-#{recommendation.id}"), class: "button primary" %><% end %>
+        <% if decision.status == "promote" %><%= link_to "Feature on storefront ↗", shopify_admin_url(@shop_record, "themes"), class: "button primary", target: "_top" %><% end %>
+        <%= link_to "Edit product ↗", shopify_admin_product_url(@shop_record, product), class: "button", target: "_top" %>
+        <%= link_to "Manage inventory ↗", shopify_admin_url(@shop_record, "products/inventory"), class: "button", target: "_top" %>
+      </div>
+      <p class="form-help"><%= metrics["cod_outcome_note"] %></p>
+    </article>
+  <% end %>
+  <% if @promotion_decisions.blank? %><div class="card empty">Sync products to generate promotion decisions.</div><% end %>
+</section>

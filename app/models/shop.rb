@@ -15,6 +15,8 @@ class Shop < ApplicationRecord
   has_many :reviewed_actions, dependent: :destroy
   has_many :autopilot_runs, dependent: :destroy
   has_one :autopilot_policy, dependent: :destroy
+  has_one :promotion_policy, dependent: :destroy
+  has_many :promotion_decisions, dependent: :destroy
 
   validates :shopify_domain, presence: true, uniqueness: true, format: { with: DOMAIN_FORMAT }
   validates :account, presence: true
@@ -29,7 +31,7 @@ class Shop < ApplicationRecord
   end
 
   # Clears the offline token and purges merchant-scoped operational data for this shop.
-  # Privacy: on uninstall we do not retain catalog, findings, activity, or order rows for the shop.
+  # Privacy: on uninstall we do not retain catalog, findings, activity, orders, or decision rows for the shop.
   # Account / membership rows and marketing pilot_requests are separate (see docs/privacy-retention.md).
   def mark_uninstalled!
     transaction do
@@ -65,6 +67,8 @@ class Shop < ApplicationRecord
     reviewed_actions.delete_all
     autopilot_runs.delete_all
     autopilot_policy&.destroy!
+    promotion_decisions.delete_all
+    promotion_policy&.destroy!
     activity_events.delete_all
     commerce_orders.find_each(&:destroy!)
     catalog_products.find_each(&:destroy!)

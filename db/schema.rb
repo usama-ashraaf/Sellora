@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_08_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_08_030000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -233,6 +233,42 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_08_020000) do
     t.index ["email"], name: "index_pilot_requests_on_email"
   end
 
+  create_table "promotion_decisions", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.bigint "catalog_product_id", null: false
+    t.string "confidence", null: false
+    t.datetime "created_at", null: false
+    t.datetime "generated_at", null: false
+    t.jsonb "metrics", default: {}, null: false
+    t.jsonb "reasons", default: [], null: false
+    t.integer "score", null: false
+    t.bigint "shop_id", null: false
+    t.string "status", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status", "score"], name: "index_promotion_decisions_on_account_id_and_status_and_score"
+    t.index ["account_id"], name: "index_promotion_decisions_on_account_id"
+    t.index ["catalog_product_id"], name: "index_promotion_decisions_on_catalog_product_id"
+    t.index ["shop_id", "catalog_product_id"], name: "index_promotion_decisions_on_shop_id_and_catalog_product_id", unique: true
+    t.index ["shop_id"], name: "index_promotion_decisions_on_shop_id"
+  end
+
+  create_table "promotion_policies", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.decimal "cod_failure_cost", precision: 12, scale: 2, default: "0.0", null: false
+    t.datetime "created_at", null: false
+    t.integer "desired_runway_days", default: 14, null: false
+    t.decimal "expected_cod_failure_rate_percent", precision: 5, scale: 2, default: "15.0", null: false
+    t.integer "minimum_margin_percent", default: 20, null: false
+    t.integer "minimum_safe_orders", default: 5, null: false
+    t.decimal "shipping_cost_per_order", precision: 12, scale: 2, default: "0.0", null: false
+    t.bigint "shop_id", null: false
+    t.decimal "target_acquisition_cost", precision: 12, scale: 2
+    t.decimal "target_roas", precision: 6, scale: 2, default: "3.0", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_promotion_policies_on_account_id"
+    t.index ["shop_id"], name: "index_promotion_policies_on_shop_id", unique: true
+  end
+
   create_table "recommendations", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.bigint "audit_finding_id"
@@ -337,6 +373,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_08_020000) do
   add_foreign_key "commerce_orders", "shops"
   add_foreign_key "memberships", "accounts"
   add_foreign_key "memberships", "users"
+  add_foreign_key "promotion_decisions", "accounts"
+  add_foreign_key "promotion_decisions", "catalog_products"
+  add_foreign_key "promotion_decisions", "shops"
+  add_foreign_key "promotion_policies", "accounts"
+  add_foreign_key "promotion_policies", "shops"
   add_foreign_key "recommendations", "accounts"
   add_foreign_key "recommendations", "audit_findings"
   add_foreign_key "recommendations", "catalog_products"

@@ -21,6 +21,7 @@ module Shopify
             Audit::ClothingRulesSeed.call
             Audit::Runner.call(shop: shop)
             Pilot::Recommendations.call(shop: shop)
+            Pilot::PromotionReadiness.call(shop: shop)
           rescue ArgumentError, ActiveRecord::RecordInvalid => e
             Rails.logger.warn("[catalog_sync] pilot follow-up skipped shop=#{shop.shopify_domain} error=#{e.message}")
           end

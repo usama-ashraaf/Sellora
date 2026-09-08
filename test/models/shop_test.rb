@@ -57,6 +57,20 @@ class ShopTest < ActiveSupport::TestCase
     assert_equal 1, other.activity_events.count
   end
 
+  test "mark_uninstalled purges promotion assumptions and decisions" do
+    account = Account.create!(name: "Promotion Privacy")
+    shop = Shop.create!(shopify_domain: "promotion-privacy.myshopify.com", access_token: "offline-token", account: account)
+    product = shop.catalog_products.create!(external_id: "product-1", title: "Shirt")
+    shop.create_promotion_policy!(account: account)
+    shop.promotion_decisions.create!(account: account, catalog_product: product, status: "limit", score: 50,
+                                     confidence: "low", generated_at: Time.current)
+
+    shop.mark_uninstalled!
+
+    assert_nil shop.reload.promotion_policy
+    assert_equal 0, shop.promotion_decisions.reload.count
+  end
+
   test "access_token is encrypted at rest" do
     shop = Shop.create!(shopify_domain: "secure.myshopify.com", access_token: "shpat_secret_value", scope: "read_products", account: Account.create!(name: "Secure Shop"))
     raw = Shop.connection.select_value(

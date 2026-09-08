@@ -24,6 +24,7 @@ class Shopify::OrderSyncJobTest < ActiveJob::TestCase
     Shopify::OrderSyncJob.perform_now(shop.id)
 
     assert shop.recommendations.exists?(kind: "promotion_opportunity", catalog_product: product)
+    assert shop.promotion_decisions.exists?(catalog_product: product)
   ensure
     Shopify::OrderSync.define_singleton_method(:call, original) if original
   end

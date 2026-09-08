@@ -7,21 +7,22 @@ class Pilot::CommerceSignalsTest < ActiveSupport::TestCase
     @account = Account.create!(name: "Commerce Signals")
     @shop = Shop.create!(shopify_domain: "signals.myshopify.com", access_token: "t", account: @account)
     @product = @shop.catalog_products.create!(external_id: "gid://shopify/Product/1", title: "Linen Kurta", status: "active")
-    variant = @product.catalog_variants.create!(external_id: "gid://shopify/ProductVariant/2", title: "M")
-    variant.catalog_inventory_levels.create!(location_external_id: "gid://shopify/Location/3", available: 8)
+    @variant = @product.catalog_variants.create!(external_id: "gid://shopify/ProductVariant/2", title: "M")
+    @variant.catalog_inventory_levels.create!(location_external_id: "gid://shopify/Location/3", available: 8)
     @product.update!(raw_attrs: { "variant_prices" => {
-      variant.external_id => { "price" => "2500", "unit_cost" => "1000", "cost_currency" => "PKR" }
+      @variant.external_id => { "price" => "2500", "unit_cost" => "1000", "cost_currency" => "PKR" }
     } })
   end
 
   test "joins product-level funnel events to authoritative order outcomes" do
     4.times { ingest("product_viewed", "product_id" => @product.external_id) }
     ingest("product_viewed", "product_id" => "1")
-    ingest("product_added_to_cart", "product_id" => @product.external_id, "quantity" => 1)
+    ingest("product_added_to_cart", "product_id" => @product.external_id, "variant_id" => @variant.external_id, "quantity" => 1)
     ingest("checkout_started", "line_items" => [ { "product_id" => @product.external_id, "quantity" => 1 } ])
     ingest("checkout_completed", "line_items" => [ { "product_id" => @product.external_id, "quantity" => 1 } ])
     order = create_order(financial_status: "paid", fulfillment_status: "fulfilled", gateways: [ "Cash on Delivery (COD)" ])
-    order.commerce_order_lines.create!(external_id: "line-1", product_external_id: @product.external_id, quantity: 2, price: 2500)
+    order.commerce_order_lines.create!(external_id: "line-1", product_external_id: @product.external_id,
+                                       variant_external_id: @variant.external_id, quantity: 2, price: 2500)
 
     signals = Pilot::CommerceSignals.call(shop: @shop)
     row = signals[:products].sole
@@ -43,6 +44,9 @@ class Pilot::CommerceSignalsTest < ActiveSupport::TestCase
     assert_equal 100, row[:cost_coverage_percent]
     assert_equal BigDecimal("60"), row[:minimum_margin_percent]
     assert_equal BigDecimal("20000"), row[:inventory_retail_value]
+    assert_equal 1, row[:variants].sole[:product_added_to_cart]
+    assert_equal 2, row[:variants].sole[:paid_units]
+    assert_equal BigDecimal("2500"), row[:variants].sole[:price]
     assert_equal({ total: 1, paid: 1, pending_payment: 0, cancelled: 0, refunded: 0, fulfilled: 1, cod: 1 }, signals[:order_outcomes])
   end
 

@@ -14,6 +14,7 @@ module Shopify
 
       OrderSync.call(shop)
       Pilot::Recommendations.call(shop: shop)
+      Pilot::PromotionReadiness.call(shop: shop)
     end
   end
 end

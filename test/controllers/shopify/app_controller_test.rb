@@ -46,6 +46,7 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
     assert_includes response.body, "Commerce intelligence"
     assert_includes response.body, "Recommendations"
+    assert_includes response.body, "Promotion Planner"
     assert_includes response.body, "Products"
     assert_includes response.body, "Orders"
     assert_includes response.body, "Activity"
@@ -90,7 +91,8 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
   test "each dashboard section renders independently" do
     account = Account.create!(name: "Dashboard Sections")
     shop = Shop.create!(shopify_domain: "sections.myshopify.com", access_token: "t", account: account)
-    expected = { "products" => "Catalog health", "orders" => "Payment and fulfillment", "activity" => "Recent storefront events",
+    expected = { "promotion_planner" => "Promotion decisions use the weakest demanded size",
+                 "products" => "Catalog health", "orders" => "Payment and fulfillment", "activity" => "Recent storefront events",
                  "actions" => "Awaiting review" }
 
     expected.each do |section, copy|
@@ -137,6 +139,26 @@ class Shopify::AppControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "it does not change selling prices"
     assert_includes response.body, "Run autopilot now"
     assert_includes response.body, "2 × Inventory or size coverage was too low"
+  end
+
+  test "promotion planner displays a product decision and merchant assumptions" do
+    account = Account.create!(name: "Planner Dashboard")
+    shop = Shop.create!(shopify_domain: "planner-dashboard.myshopify.com", access_token: "t", account: account)
+    product = shop.catalog_products.create!(external_id: "gid://shopify/Product/321", title: "Balanced Kurti", status: "active")
+    variant = product.catalog_variants.create!(external_id: "gid://shopify/ProductVariant/654", title: "M", option_summary: "M")
+    variant.catalog_inventory_levels.create!(location_external_id: "location-1", available: 20)
+    product.update!(raw_attrs: { "variant_prices" => { variant.external_id => {
+      "price" => "3000", "unit_cost" => "1000", "cost_currency" => "PKR"
+    } } })
+
+    get shopify_dashboard_path, params: { section: "promotion_planner" }, headers: authorization_header(shop.shopify_domain)
+
+    assert_response :ok
+    assert_includes response.body, "Balanced Kurti"
+    assert_includes response.body, "Safe demand"
+    assert_includes response.body, "Campaign assumptions"
+    assert_includes response.body, "Shopify status proxy"
+    assert_includes response.body, "Manage inventory"
   end
 
   test "embed home tolerates missing shopify params with friendly message" do

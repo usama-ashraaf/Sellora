@@ -20,6 +20,7 @@ module Pilot
       order_sync_result = sync_orders
       audit_result = Audit::Runner.call(shop: @shop)
       recs = Recommendations.call(shop: @shop)
+      decisions = PromotionReadiness.call(shop: @shop)
       @shop.update_columns(last_discovered_at: Time.current)
 
       {
@@ -28,7 +29,8 @@ module Pilot
         order_sync: order_sync_result,
         audit_findings: audit_result.findings.size,
         audit_skipped: audit_result.skipped,
-        recommendations: recs.size
+        recommendations: recs.size,
+        promotion_decisions: decisions.size
       }
     end
 

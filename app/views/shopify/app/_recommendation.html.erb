@@ -1,4 +1,4 @@
-<article class="recommendation <%= recommendation_badge_class(recommendation.priority) %>">
+<article id="recommendation-<%= recommendation.id %>" class="recommendation <%= recommendation_badge_class(recommendation.priority) %>">
   <div class="recommendation-top">
     <div>
       <span class="badge <%= recommendation_badge_class(recommendation.priority) %>"><%= recommendation.priority %></span>

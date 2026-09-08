@@ -10,6 +10,8 @@ This document describes **what Sellora stores today**, what happens on Shopify u
 | Catalog mirror | `catalog_products`, variants, inventory levels | Shop → Account |
 | Audit | `audit_rule_sets` / `audit_rules` (global seed), `audit_findings` | Findings: Account + Shop |
 | Activity | `activity_events` (incl. `source: web_pixel`) | Account (+ optional Shop) |
+| Commerce outcomes | `commerce_orders` and order lines | Account + Shop |
+| Merchant intelligence | `recommendations`, reviewed actions, autopilot policies/runs, promotion assumptions/decisions | Account + Shop |
 | Webhooks ledger | `webhook_events` (idempotency keys) | Shop domain string |
 | Marketing pilot | `pilot_requests` (name, work email, store URL, platform) | No Shopify shop FK |
 | Demo gate | HTTP Basic env vars only (no passwords in DB) | N/A |
@@ -26,6 +28,8 @@ Triggered by verified webhook `POST /webhooks/shopify/app_uninstalled` → `Shop
 - Catalog mirror (products → variants → inventory levels)
 - `audit_findings` for the shop
 - `activity_events` for the shop
+- Commerce orders and order lines
+- Recommendations, reviewed actions, autopilot policies/runs, and promotion assumptions/decisions
 
 **Retained**
 
@@ -54,7 +58,7 @@ Re-install starts with an empty local catalog, a new OAuth token, and a new pixe
 
 | Data | Working hypothesis |
 |------|--------------------|
-| Catalog / findings / shop activity | Deleted on uninstall (implemented) |
+| Catalog / findings / shop activity / orders / merchant intelligence | Deleted on uninstall (implemented) |
 | Webhook idempotency ledger | Delete after 30 days |
 | Pilot requests | Delete after 365 days or earlier after a verified request |
 | Uninstalled `shops` rows | Hard-delete after 90 days |

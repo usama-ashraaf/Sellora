@@ -9,6 +9,8 @@ class Account < ApplicationRecord
   has_many :autopilot_runs, dependent: :destroy
   has_many :audit_findings, dependent: :destroy
   has_many :activity_events, dependent: :destroy
+  has_many :promotion_policies, dependent: :destroy
+  has_many :promotion_decisions, dependent: :destroy
 
   validates :name, presence: true
 

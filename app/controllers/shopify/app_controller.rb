@@ -7,7 +7,7 @@ module Shopify
     include Shopify::EmbeddedFrameHeaders
     include Shopify::SessionTokenAuthentication
 
-    SECTIONS = %w[overview recommendations products orders activity actions].freeze
+    SECTIONS = %w[overview promotion_planner recommendations products orders activity actions].freeze
 
     protect_from_forgery with: :exception
     layout "shopify_embedded"
@@ -77,6 +77,15 @@ module Shopify
         products: shop.catalog_products.count,
         orders: shop.commerce_orders.count
       }
+      load_promotion_planner!(shop) if @section == "promotion_planner"
+    end
+
+    def load_promotion_planner!(shop)
+      @promotion_policy = Pilot::PromotionReadiness.ensure_policy!(shop)
+      @promotion_decisions = Pilot::PromotionReadiness.ensure_decisions!(shop)
+      @promotion_recommendations = shop.recommendations.open_items
+                                         .where(kind: %w[promotion_opportunity social_ad_candidate])
+                                         .index_by(&:catalog_product_id)
     end
   end
 end

@@ -49,6 +49,31 @@ module Pilot
         available_variants = availability.count { |_variant, available| available.positive? }
         total_variants = variants.size
         economics = product_economics(product, variants, availability)
+        variant_rows = variants.map do |variant|
+          variant_economics = economics.fetch(:variants).fetch(variant.external_id)
+          {
+            variant: variant,
+            title: variant.option_summary.presence || variant.title.presence || "Unnamed variant",
+            sku: variant.sku,
+            inventory: availability.fetch(variant, 0),
+            price: variant_economics[:price],
+            cost: variant_economics[:cost],
+            margin_percent: variant_economics[:margin_percent],
+            product_viewed: 0,
+            product_added_to_cart: 0,
+            product_removed_from_cart: 0,
+            checkout_started: 0,
+            payment_info_submitted: 0,
+            checkout_completed: 0,
+            paid_orders: 0,
+            paid_units: 0,
+            cancelled_orders: 0,
+            refunded_orders: 0,
+            fulfilled_orders: 0,
+            cod_orders: 0,
+            order_ids: Hash.new { |hash, key| hash[key] = Set.new }
+          }
+        end
         rows[product.external_id] = {
           product: product,
           title: product.title,
@@ -61,6 +86,7 @@ module Pilot
           cost_coverage_percent: economics[:cost_coverage_percent],
           minimum_margin_percent: economics[:minimum_margin_percent],
           inventory_retail_value: economics[:inventory_retail_value],
+          variants: variant_rows,
           product_viewed: 0,
           product_added_to_cart: 0,
           product_removed_from_cart: 0,
@@ -85,17 +111,19 @@ module Pilot
 
     def product_economics(product, variants, availability)
       rows = product.raw_attrs.fetch("variant_prices", {})
-      priced = variants.filter_map do |variant|
+      variant_rows = variants.to_h do |variant|
         values = rows[variant.external_id] || {}
         price = decimal(values["price"])
         cost = decimal(values["unit_cost"])
-        next if price.nil? || price <= 0
-
-        { price: price, cost: cost, inventory: availability.fetch(variant, 0) }
+        margin = ((price - cost) * 100 / price).round(2) if price&.positive? && cost
+        [ variant.external_id, { price: price, cost: cost, margin_percent: margin,
+                                 inventory: availability.fetch(variant, 0) } ]
       end
+      priced = variant_rows.values.select { |row| row[:price]&.positive? }
       costed = priced.select { |row| row[:cost]&.positive? }
-      margins = costed.map { |row| ((row[:price] - row[:cost]) * 100 / row[:price]).round(2) }
+      margins = costed.map { |row| row[:margin_percent] }
       {
+        variants: variant_rows,
         cost_coverage_percent: variants.any? ? (costed.size * 100.0 / variants.size).round : 0,
         minimum_margin_percent: margins.min,
         inventory_retail_value: priced.sum { |row| row[:price] * row[:inventory] }
@@ -111,9 +139,13 @@ module Pilot
     def aggregate_events!(products, funnel)
       @shop.activity_events.where(event_name: STOREFRONT_EVENTS).where("occurred_at >= ?", @storefront_since).find_each do |event|
         funnel[event.event_name] += 1
-        product_ids(event.payload).each do |product_id|
+        event_items(event.payload).group_by { |item| item[:product_id] }.each do |product_id, items|
           row = find_product_row(products, product_id)
           row[event.event_name.to_sym] += 1 if row
+          items.filter_map { |item| item[:variant_id] }.uniq.each do |variant_id|
+            variant_row = find_variant_row(row, variant_id)
+            variant_row[event.event_name.to_sym] += 1 if variant_row
+          end
         end
       end
     end
@@ -122,12 +154,28 @@ module Pilot
       products[product_id] || products["gid://shopify/Product/#{product_id}"]
     end
 
-    def product_ids(payload)
+    def event_items(payload)
       return [] unless payload.is_a?(Hash)
 
-      direct = payload["product_id"]
-      nested = Array(payload["line_items"]).filter_map { |line| line["product_id"] if line.is_a?(Hash) }
-      ([ direct ] + nested).compact.uniq
+      direct = { product_id: payload["product_id"], variant_id: payload["variant_id"] } if payload["product_id"].present?
+      nested = Array(payload["line_items"]).filter_map do |line|
+        next unless line.is_a?(Hash) && line["product_id"].present?
+
+        { product_id: line["product_id"], variant_id: line["variant_id"] }
+      end
+      [ direct, *nested ].compact
+    end
+
+    def find_variant_row(product_row, variant_id)
+      return unless product_row
+
+      product_row[:variants].find do |row|
+        external_id_matches?(row[:variant].external_id, variant_id)
+      end
+    end
+
+    def external_id_matches?(stored_id, incoming_id)
+      stored_id.to_s == incoming_id.to_s || stored_id.to_s.split("/").last == incoming_id.to_s.split("/").last
     end
 
     def aggregate_orders!(products)
@@ -156,15 +204,25 @@ module Pilot
         row = products[line.product_external_id]
         next unless row
 
+        variant_row = find_variant_row(row, line.variant_external_id)
+
         record_order(row, :cancelled_orders, order.id) if cancelled
+        record_order(variant_row, :cancelled_orders, order.id) if cancelled && variant_row
         record_order(row, :refunded_orders, order.id) if refunded
+        record_order(variant_row, :refunded_orders, order.id) if refunded && variant_row
         record_order(row, :fulfilled_orders, order.id) if fulfilled
+        record_order(variant_row, :fulfilled_orders, order.id) if fulfilled && variant_row
         record_order(row, :cod_orders, order.id) if cod
+        record_order(variant_row, :cod_orders, order.id) if cod && variant_row
         next unless paid && !cancelled && !refunded
 
         record_order(row, :paid_orders, order.id)
         row[:paid_units] += line.quantity
         row[:paid_revenue] += (line.price || 0) * line.quantity
+        if variant_row
+          record_order(variant_row, :paid_orders, order.id)
+          variant_row[:paid_units] += line.quantity
+        end
       end
     end
 

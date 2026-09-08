@@ -83,6 +83,16 @@ module Shopify::AppHelper
     }.fetch(reason.to_s, reason.to_s.humanize)
   end
 
+  def promotion_status_class(status)
+    { "promote" => "ready", "limit" => "warning", "block" => "danger" }.fetch(status, "neutral")
+  end
+
+  def promotion_money(value, currency)
+    return "Not available" if value.blank?
+
+    [ currency.presence, number_with_delimiter(number_with_precision(value, precision: 0)) ].compact.join(" ")
+  end
+
   private
 
   def activity_money(amount, currency)
